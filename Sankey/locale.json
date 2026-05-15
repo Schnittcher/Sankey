@@ -1,0 +1,19 @@
+{
+    "translations": {
+        "de": {
+            "Height": "Höhe",
+            "Title of the chart": "Titel des Diagramms",
+            "Local – no internet connection required": "Lokal – keine Internetverbindung erforderlich",
+            "Google Charts – internet required": "Google Charts – Internet erforderlich",
+            "Sankey links": "Sankey-Verbindungen",
+            "Each row defines a flow from a source node to a destination node. The value is read from the selected variable (numeric, > 0). The color is optional.": "Jede Zeile definiert einen Fluss von einer Quell-Node zu einer Ziel-Node. Der Wert wird aus der gewählten Variable gelesen (numerisch, > 0). Die Farbe ist optional.",
+            "Connections": "Verbindungen",
+            "Source (From)": "Quelle (Von)",
+            "Target (To)": "Ziel (Nach)",
+            "Variable (Value)": "Variable (Wert)",
+            "Unit": "Einheit",
+            "Color (Source)": "Farbe (Quelle)",
+            "Update chart now": "Diagramm jetzt aktualisieren"
+        }
+    }
+}

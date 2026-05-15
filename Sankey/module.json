@@ -1,0 +1,14 @@
+{
+    "id": "{4A7D5E9F-2B3C-4D8E-A1F6-9C0E3B7D2A58}",
+    "name": "Sankey",
+    "type": 3,
+    "vendor": "Kai Schnittcher",
+    "aliases": [
+        "Sankey"
+    ],
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "SD",
+    "url": "https://deinsmarthome.info"
+}

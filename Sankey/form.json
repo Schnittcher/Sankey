@@ -1,0 +1,122 @@
+{
+    "elements": [
+        {
+            "type": "ValidationTextBox",
+            "name": "Title",
+            "caption": "Title of the chart"
+        },
+        {
+            "type": "NumberSpinner",
+            "name": "Height",
+            "caption": "Height",
+            "minimum": 200,
+            "maximum": 2000,
+            "suffix": "px"
+        },
+        {
+            "type": "RowLayout",
+            "items": [
+                {
+                    "type": "SelectColor",
+                    "name": "ColorTitle",
+                    "caption": "Titelfarbe"
+                },
+                {
+                    "type": "SelectColor",
+                    "name": "ColorLabel",
+                    "caption": "Label-Farbe (Nodes)"
+                }
+            ]
+        },
+        {
+            "type": "Select",
+            "name": "Library",
+            "caption": "Render-Bibliothek",
+            "options": [
+                {
+                    "caption": "Local – no internet connection required",
+                    "value": "local"
+                },
+                {
+                    "caption": "Google Charts – internet required",
+                    "value": "google"
+                }
+            ]
+        },
+        {
+            "type": "Label",
+            "caption": " "
+        },
+        {
+            "type": "Label",
+            "caption": "Sankey links",
+            "bold": true
+        },
+        {
+            "type": "Label",
+            "caption": "Each row defines a flow from a source node to a destination node. The value is read from the selected variable (numeric, > 0). The color is optional."
+        },
+        {
+            "type": "List",
+            "name": "Links",
+            "caption": "Connections",
+            "rowCount": 12,
+            "add": true,
+            "delete": true,
+            "columns": [
+                {
+                    "caption": "Source (From)",
+                    "name": "Source",
+                    "width": "180px",
+                    "add": "",
+                    "edit": {
+                        "type": "ValidationTextBox"
+                    }
+                },
+                {
+                    "caption": "Target (To)",
+                    "name": "Target",
+                    "width": "180px",
+                    "add": "",
+                    "edit": {
+                        "type": "ValidationTextBox"
+                    }
+                },
+                {
+                    "caption": "Variable (Value)",
+                    "name": "VariableID",
+                    "width": "250px",
+                    "add": 0,
+                    "edit": {
+                        "type": "SelectVariable"
+                    }
+                },
+                {
+                    "caption": "Unit",
+                    "name": "Unit",
+                    "width": "80px",
+                    "add": "",
+                    "edit": {
+                        "type": "ValidationTextBox"
+                    }
+                },
+                {
+                    "caption": "Color (Source)",
+                    "name": "Color",
+                    "width": "120px",
+                    "add": 2450411,
+                    "edit": {
+                        "type": "SelectColor"
+                    }
+                }
+            ]
+        }
+    ],
+    "actions": [
+        {
+            "type": "Button",
+            "caption": "Update chart now",
+            "onClick": "SD_UpdateDiagram($id);"
+        }
+    ]
+}
