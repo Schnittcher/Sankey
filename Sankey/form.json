@@ -32,6 +32,7 @@
             "type": "Select",
             "name": "Library",
             "caption": "Render-Bibliothek",
+            "visible": false,
             "options": [
                 {
                     "caption": "Local – no internet connection required",
@@ -89,15 +90,6 @@
                     "add": 0,
                     "edit": {
                         "type": "SelectVariable"
-                    }
-                },
-                {
-                    "caption": "Unit",
-                    "name": "Unit",
-                    "width": "80px",
-                    "add": "",
-                    "edit": {
-                        "type": "ValidationTextBox"
                     }
                 },
                 {
