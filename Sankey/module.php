@@ -83,6 +83,7 @@ class Sankey extends IPSModule
 
     // Liefert ['rows' => [...], 'nodeColors' => [...]]
     // rows-Format: [source, target, value, unit]
+
     private function CollectData(): array
     {
         $links        = json_decode($this->ReadPropertyString('Links'), true) ?? [];
@@ -90,7 +91,7 @@ class Sankey extends IPSModule
         $nodeColorMap = []; // node-name => hex
 
         $fallback = ['#2563eb','#16a34a','#ea580c','#7c3aed','#db2777',
-                     '#ca8a04','#0891b2','#dc2626','#059669','#9333ea'];
+                    '#ca8a04','#0891b2','#dc2626','#059669','#9333ea'];
 
         foreach ($links as $link) {
             $source = trim($link['Source'] ?? '');
@@ -115,10 +116,19 @@ class Sankey extends IPSModule
                 $unit,
             ];
 
-            // Farbe der Quell-Node speichern (erste Definition gewinnt)
             $color = intval($link['Color'] ?? 0);
-            if ($color > 0 && !array_key_exists($source, $nodeColorMap)) {
-                $nodeColorMap[$source] = sprintf('#%06x', $color);
+
+            if ($color > 0) {
+
+                $hex = sprintf('#%06x', $color);
+
+                if (!array_key_exists($source, $nodeColorMap)) {
+                    $nodeColorMap[$source] = $hex;
+                }
+
+                if (!array_key_exists($target, $nodeColorMap)) {
+                    $nodeColorMap[$target] = $hex;
+                }
             }
         }
 
