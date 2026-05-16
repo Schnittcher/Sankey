@@ -32,7 +32,6 @@ __Konfigurationsseite__:
 Name     | Beschreibung
 -------- | ------------------
 Titel des Diagramms | Hier kann ein Titel für das DIagramm festgelegt werden.
-Höhe | Hier kann die Hähe des Diagramms eingestellt werden.
 Titel Farbe | Hier kann die Farbe des Titels eingestellt werden.
 Label Farbe | Hier kann die Farbe der Labels im Diagramm  eingestellt werden.
 Verbindungen | Hier wird das Diagramm konfiguriert

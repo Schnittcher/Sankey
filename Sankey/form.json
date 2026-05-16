@@ -6,14 +6,6 @@
             "caption": "Title of the chart"
         },
         {
-            "type": "NumberSpinner",
-            "name": "Height",
-            "caption": "Height",
-            "minimum": 200,
-            "maximum": 2000,
-            "suffix": "px"
-        },
-        {
             "type": "RowLayout",
             "items": [
                 {
@@ -25,22 +17,6 @@
                     "type": "SelectColor",
                     "name": "ColorLabel",
                     "caption": "Label-Farbe (Nodes)"
-                }
-            ]
-        },
-        {
-            "type": "Select",
-            "name": "Library",
-            "caption": "Render-Bibliothek",
-            "visible": false,
-            "options": [
-                {
-                    "caption": "Local – no internet connection required",
-                    "value": "local"
-                },
-                {
-                    "caption": "Google Charts – internet required",
-                    "value": "google"
                 }
             ]
         },

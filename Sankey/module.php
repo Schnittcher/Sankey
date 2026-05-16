@@ -9,18 +9,18 @@ class Sankey extends IPSModule
         parent::Create();
 
         $this->RegisterPropertyString('Title', 'Energiefluss');
-        $this->RegisterPropertyInteger('Height', 500);
-        $this->RegisterPropertyString('Library', 'local');
         $this->RegisterPropertyInteger('ColorTitle', 0x1e293b);
         $this->RegisterPropertyInteger('ColorLabel', 0x1e293b);
         $this->RegisterPropertyString('Links', '[]');
 
-        $this->RegisterVariableString('Diagram', 'Sankey-Diagramm', '~HTMLBox');
+        $this->SetVisualizationType(1);
     }
 
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+
+        $this->SetVisualizationType(1);
 
         // Alle bisherigen Nachrichten abmelden
         foreach ($this->GetMessageList() as $senderID => $messages) {
@@ -38,7 +38,7 @@ class Sankey extends IPSModule
             }
         }
 
-        $this->UpdateDiagram();
+        $this->UpdateVisualizationValue($this->GetVisualizationTile());
     }
 
     public function MessageSink($TimeStamp, $SenderID, $Message, $Data) {
@@ -49,7 +49,12 @@ class Sankey extends IPSModule
 
     public function UpdateDiagram(): void
     {
-        $this->SetValue('Diagram', $this->GenerateHTML());
+        $this->UpdateVisualizationValue(json_encode($this->CollectData(), JSON_UNESCAPED_UNICODE));
+    }
+
+    public function GetVisualizationTile()
+    {
+        return $this->GenerateHTML();
     }
 
     // --- private ---
@@ -76,7 +81,7 @@ class Sankey extends IPSModule
         return IPS_GetVariableProfile($profileName)['Suffix'];
     }
 
-    // Liefert ['rows' => [...], 'nodeColors' => [...], 'palette' => [...]]
+    // Liefert ['rows' => [...], 'nodeColors' => [...]]
     // rows-Format: [source, target, value, unit]
     private function CollectData(): array
     {
@@ -117,45 +122,25 @@ class Sankey extends IPSModule
             }
         }
 
-        // Geordnete Farbpalette für Google Charts (Array nach Node-Reihenfolge)
-        $orderedNodes = [];
-        foreach ($rows as $row) {
-            foreach ([$row[0], $row[1]] as $node) {
-                if (!in_array($node, $orderedNodes, true)) {
-                    $orderedNodes[] = $node;
-                }
-            }
-        }
-        $fallbackIdx = 0;
-        $palette     = [];
-        foreach ($orderedNodes as $node) {
-            $palette[] = $nodeColorMap[$node] ?? $fallback[$fallbackIdx++ % count($fallback)];
-        }
-
         return [
             'rows'       => $rows,
             'nodeColors' => $nodeColorMap,
-            'palette'    => $palette,
         ];
     }
 
     private function GenerateHTML(): string
     {
         $title       = htmlspecialchars($this->ReadPropertyString('Title'), ENT_QUOTES, 'UTF-8');
-        $height      = intval($this->ReadPropertyInteger('Height'));
         $colorTitle  = sprintf('#%06x', $this->ReadPropertyInteger('ColorTitle'));
         $colorLabel  = sprintf('#%06x', $this->ReadPropertyInteger('ColorLabel'));
         $data        = $this->CollectData();
 
-        if ($this->ReadPropertyString('Library') === 'google') {
-            return $this->GenerateGoogleChartsHTML($title, $height, $colorTitle, $colorLabel, $data);
-        }
-        return $this->GenerateLocalHTML($title, $height, $colorTitle, $colorLabel, $data);
+        return $this->GenerateLocalHTML($title, $colorTitle, $colorLabel, $data);
     }
 
-    private function GenerateLocalHTML(string $title, int $height, string $colorTitle, string $colorLabel, array $data): string
+    private function GenerateLocalHTML(string $title, string $colorTitle, string $colorLabel, array $data): string
     {
-        $jsRows   = json_encode($data['rows'],       JSON_UNESCAPED_UNICODE);
+        $jsRows   = json_encode($data['rows'], JSON_UNESCAPED_UNICODE);
         $jsColors = json_encode($data['nodeColors'], JSON_UNESCAPED_UNICODE);
         $sankeyJS = file_get_contents(__DIR__ . '/libs/sankey.js');
 
@@ -168,7 +153,38 @@ class Sankey extends IPSModule
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:transparent; font-family:'Segoe UI',Arial,sans-serif; padding:12px; }
   h1 { text-align:center; color:{$colorTitle}; font-size:1.2em; font-weight:600; margin-bottom:10px; }
-  #chart_div { width:100%; height:{$height}px; }
+  html, body {
+    width:100%;
+    height:100%;
+    margin:0;
+    padding:0;
+    overflow:hidden;
+    background:transparent;
+    font-family:'Segoe UI',Arial,sans-serif;
+    }
+
+    body {
+    display:flex;
+    flex-direction:column;
+    }
+
+    h1 {
+    flex:0 0 auto;
+    text-align:center;
+    color:{$colorTitle};
+    font-size:1.2em;
+    font-weight:600;
+    margin:8px 0;
+    }
+
+    #chart_div {
+        flex:1 1 auto;
+        width:100%;
+        min-height:120px;
+        padding-bottom:18px;
+        opacity:1;
+        transition:opacity .25s ease;
+    }
 </style>
 </head>
 <body>
@@ -176,89 +192,53 @@ class Sankey extends IPSModule
 <div id="chart_div"></div>
 <script>{$sankeyJS}</script>
 <script>
-  var rows = {$jsRows};
-  var nodeColors = {$jsColors};
-  function render() {
-    drawSankey('chart_div', rows, { nodeColors: nodeColors, linkOpacity: 0.45, labelColor: '{$colorLabel}' });
-  }
-  render();
-  var rTimer;
-  window.addEventListener('resize', function() { clearTimeout(rTimer); rTimer = setTimeout(render, 250); });
-</script>
-</body>
-</html>
-HTML;
+    var rows = {$jsRows};
+    var nodeColors = {$jsColors};
+
+    function render() {
+        var chart = document.getElementById('chart_div');
+        chart.innerHTML = '';
+
+        drawSankey('chart_div', rows, {
+            nodeColors: nodeColors,
+            linkOpacity: 0.45,
+            labelColor: '{$colorLabel}'
+        });
     }
 
-    private function GenerateGoogleChartsHTML(string $title, int $height, string $colorTitle, string $colorLabel, array $data): string
-    {
-        $jsRows    = json_encode($data['rows'],    JSON_UNESCAPED_UNICODE);
-        $jsPalette = json_encode($data['palette'], JSON_UNESCAPED_UNICODE);
-        $noDataMsg = empty($data['rows'])
-            ? '<p class="msg">Keine Daten &ndash; bitte Variablen konfigurieren und sicherstellen, dass deren Werte &gt;&nbsp;0 sind.</p>'
-            : '';
-        $chartDisplay = empty($data['rows']) ? 'none' : 'block';
+    function handleMessage(message) {
+        var data = typeof message === 'string' ? JSON.parse(message) : message;
 
-        return <<<HTML
-<!DOCTYPE html>
-<html lang="de">
-<head>
-<meta charset="UTF-8">
-<script src="https://www.gstatic.com/charts/loader.js"></script>
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:transparent; font-family:'Segoe UI',Arial,sans-serif; padding:12px; }
-  h1 { text-align:center; color:{$colorTitle}; font-size:1.2em; font-weight:600; margin-bottom:10px; }
-  #wrap { width:100%; height:{$height}px; display:flex; align-items:center; justify-content:center; }
-  #chart_div { width:100%; height:100%; display:{$chartDisplay}; }
-  .msg { color:#64748b; font-size:.9em; text-align:center; }
-</style>
-</head>
-<body>
-<h1>{$title}</h1>
-<div id="wrap">
-  {$noDataMsg}
-  <div id="chart_div"></div>
-</div>
-<script>
-google.charts.load('current', {packages:['sankey']});
-google.charts.setOnLoadCallback(function() {
-  var rows = {$jsRows};
-  if (!rows.length) return;
-  var dt = new google.visualization.DataTable();
-  dt.addColumn('string','Von');
-  dt.addColumn('string','Nach');
-  dt.addColumn('number','Wert');
-  dt.addColumn({type:'string', role:'tooltip', p:{html:true}});
-  dt.addRows(rows.map(function(r) {
-    var unit = r[3] ? ' ' + r[3] : '';
-    var val  = r[2].toLocaleString('de-DE', {maximumFractionDigits: 2});
-    return [
-      r[0], r[1], r[2],
-      '<div style="padding:6px 10px;font-family:Segoe UI,Arial,sans-serif;font-size:12px;line-height:1.5;color:#1e293b;background:#fff">'
-        + '<b>' + r[0] + '</b> &rarr; <b>' + r[1] + '</b><br>'
-        + val + unit
-      + '</div>'
-    ];
-  }));
-  var options = {
-    width: '100%',
-    height: {$height},
-    tooltip: { isHtml: true },
-    sankey: {
-      node: {
-        colors: {$jsPalette},
-        label: { fontName: 'Segoe UI', fontSize: 13, color: '{$colorLabel}' },
-        interactivity: true,
-        width: 22,
-        nodePadding: 14
-      },
-      link: { colorMode: 'source', fillOpacity: 0.45 }
+        rows = data.rows || [];
+        nodeColors = data.nodeColors || {};
+
+        render();
     }
-  };
-  var chart = new google.visualization.Sankey(document.getElementById('chart_div'));
-  chart.draw(dt, options);
-});
+
+    window.addEventListener('message', function(event) {
+        handleMessage(event.data);
+    });
+
+    render();
+
+    var resizeTimer;
+
+    if (window.ResizeObserver) {
+        var observer = new ResizeObserver(function() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(render, 150);
+        });
+
+        observer.observe(document.body);
+
+    } else {
+
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(render, 150);
+        });
+
+    }
 </script>
 </body>
 </html>

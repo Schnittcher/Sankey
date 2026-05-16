@@ -133,8 +133,11 @@
         cols.forEach(function (colNodes) {
             colNodes.sort(function (a, b) { return Math.max(b.inV, b.outV) - Math.max(a.inV, a.outV); });
             var total = colNodes.reduce(function (s, n) { return s + Math.max(n.inV, n.outV); }, 0);
-            var avail = H - o.nodePadding * Math.max(colNodes.length - 1, 0);
-            var y = 0;
+            var padTop = 4;
+            var padBottom = 20;
+            var rawAvail = H - padTop - padBottom - o.nodePadding * Math.max(colNodes.length - 1, 0);
+            var avail = Math.max(20, rawAvail);
+            var y = padTop;
             colNodes.forEach(function (n) {
                 n.h = Math.max(4, Math.max(n.inV, n.outV) / total * avail);
                 n.y = y;
