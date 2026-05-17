@@ -8,8 +8,6 @@ class Sankey extends IPSModule
     {
         parent::Create();
 
-        $this->RegisterPropertyString('Title', 'Energiefluss');
-        $this->RegisterPropertyInteger('ColorTitle', 0x1e293b);
         $this->RegisterPropertyInteger('ColorLabel', 0x1e293b);
         $this->RegisterPropertyString('Links', '[]');
 
@@ -140,15 +138,13 @@ class Sankey extends IPSModule
 
     private function GenerateHTML(): string
     {
-        $title       = htmlspecialchars($this->ReadPropertyString('Title'), ENT_QUOTES, 'UTF-8');
-        $colorTitle  = sprintf('#%06x', $this->ReadPropertyInteger('ColorTitle'));
         $colorLabel  = sprintf('#%06x', $this->ReadPropertyInteger('ColorLabel'));
         $data        = $this->CollectData();
 
-        return $this->GenerateLocalHTML($title, $colorTitle, $colorLabel, $data);
+        return $this->GenerateLocalHTML($colorLabel, $data);
     }
 
-    private function GenerateLocalHTML(string $title, string $colorTitle, string $colorLabel, array $data): string
+    private function GenerateLocalHTML(string $colorLabel, array $data): string
     {
         $jsRows   = json_encode($data['rows'], JSON_UNESCAPED_UNICODE);
         $jsColors = json_encode($data['nodeColors'], JSON_UNESCAPED_UNICODE);
@@ -162,7 +158,6 @@ class Sankey extends IPSModule
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:transparent; font-family:'Segoe UI',Arial,sans-serif; padding:12px; }
-  h1 { text-align:center; color:{$colorTitle}; font-size:1.2em; font-weight:600; margin-bottom:10px; }
   html, body {
     width:100%;
     height:100%;
@@ -178,15 +173,6 @@ class Sankey extends IPSModule
     flex-direction:column;
     }
 
-    h1 {
-    flex:0 0 auto;
-    text-align:center;
-    color:{$colorTitle};
-    font-size:1.2em;
-    font-weight:600;
-    margin:8px 0;
-    }
-
     #chart_div {
         flex:1 1 auto;
         width:100%;
@@ -198,7 +184,6 @@ class Sankey extends IPSModule
 </style>
 </head>
 <body>
-<h1>{$title}</h1>
 <div id="chart_div"></div>
 <script>{$sankeyJS}</script>
 <script>

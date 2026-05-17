@@ -1,24 +1,9 @@
 {
     "elements": [
         {
-            "type": "ValidationTextBox",
-            "name": "Title",
-            "caption": "Title of the chart"
-        },
-        {
-            "type": "RowLayout",
-            "items": [
-                {
-                    "type": "SelectColor",
-                    "name": "ColorTitle",
-                    "caption": "Titelfarbe"
-                },
-                {
-                    "type": "SelectColor",
-                    "name": "ColorLabel",
-                    "caption": "Label-Farbe (Nodes)"
-                }
-            ]
+            "type": "SelectColor",
+            "name": "ColorLabel",
+            "caption": "Label-Farbe (Nodes)"
         },
         {
             "type": "Label",
