@@ -9,7 +9,14 @@ class Sankey extends IPSModule
         parent::Create();
 
         $this->RegisterPropertyInteger('ColorLabel', 0x1e293b);
+        $this->RegisterPropertyBoolean('ShowValues', false);
+        $this->RegisterPropertyBoolean('StaticMode', false);
         $this->RegisterPropertyString('Links', '[]');
+
+        $this->RegisterVariableInteger('StartDate', 'Startdatum', '~UnixTimestamp', 10);
+        $this->RegisterVariableInteger('EndDate',   'Enddatum',   '~UnixTimestamp', 11);
+        $this->EnableAction('StartDate');
+        $this->EnableAction('EndDate');
 
         $this->SetVisualizationType(1);
     }
@@ -20,6 +27,21 @@ class Sankey extends IPSModule
 
         $this->SetVisualizationType(1);
 
+        $staticMode = $this->ReadPropertyBoolean('StaticMode');
+
+        // Datumsvariablen nur im statischen Modus sichtbar und bedienbar
+        IPS_SetHidden($this->GetIDForIdent('StartDate'),   !$staticMode);
+        IPS_SetHidden($this->GetIDForIdent('EndDate'),     !$staticMode);
+        IPS_SetDisabled($this->GetIDForIdent('StartDate'), !$staticMode);
+        IPS_SetDisabled($this->GetIDForIdent('EndDate'),   !$staticMode);
+
+        // Standardzeitraum setzen wenn noch kein Wert vorhanden
+        if ($staticMode && GetValue($this->GetIDForIdent('StartDate')) === 0) {
+            $now = time();
+            SetValue($this->GetIDForIdent('StartDate'), mktime(0, 0, 0, (int) date('n', $now), 1, (int) date('Y', $now)));
+            SetValue($this->GetIDForIdent('EndDate'), $now);
+        }
+
         // Alle bisherigen Nachrichten abmelden
         foreach ($this->GetMessageList() as $senderID => $messages) {
             foreach ($messages as $message) {
@@ -27,20 +49,31 @@ class Sankey extends IPSModule
             }
         }
 
-        // Auf Änderungen aller konfigurierten Variablen reagieren
-        $links = json_decode($this->ReadPropertyString('Links'), true) ?? [];
-        foreach ($links as $link) {
-            $varID = intval($link['VariableID'] ?? 0);
-            if ($varID > 0 && IPS_VariableExists($varID)) {
-                $this->RegisterMessage($varID, VM_UPDATE);
+        // Im Live-Modus Variablen überwachen
+        if (!$staticMode) {
+            $links = json_decode($this->ReadPropertyString('Links'), true) ?? [];
+            foreach ($links as $link) {
+                $varID = intval($link['VariableID'] ?? 0);
+                if ($varID > 0 && IPS_VariableExists($varID)) {
+                    $this->RegisterMessage($varID, VM_UPDATE);
+                }
             }
         }
 
         $this->UpdateVisualizationValue($this->GetVisualizationTile());
     }
 
-    public function MessageSink($TimeStamp, $SenderID, $Message, $Data) {
+    public function MessageSink($TimeStamp, $SenderID, $Message, $Data): void
+    {
         if ($Message === VM_UPDATE) {
+            $this->UpdateDiagram();
+        }
+    }
+
+    public function RequestAction($Ident, $Value): void
+    {
+        if ($Ident === 'StartDate' || $Ident === 'EndDate') {
+            SetValue($this->GetIDForIdent($Ident), $Value);
             $this->UpdateDiagram();
         }
     }
@@ -79,17 +112,52 @@ class Sankey extends IPSModule
         return IPS_GetVariableProfile($profileName)['Suffix'];
     }
 
+
+    private function GetValueFromArchive(int $varID, int $startTime, int $endTime): float
+    {
+        $archiveID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
+        if ($archiveID === 0) {
+            return 0.0;
+        }
+
+        if (!AC_GetLoggingStatus($archiveID, $varID)) {
+            return 0.0;
+        }
+
+        // Aggregationstyp ermitteln: 0 = Standard, 1 = Zähler
+        $isCounter = false;
+
+        $isCounter = boolval(AC_GetAggregationType($archiveID, $varID)); // Cache füllen
+
+        if ($isCounter) {
+            // Letzten protokollierten Wert im Zeitraum verwenden
+            $values = AC_GetLoggedValues($archiveID, $varID, $startTime, $endTime, 0);
+            if (empty($values)) {
+                return 0.0;
+            }
+            return floatval(end($values)['Value']);
+        }
+
+        // Standard: Durchschnitt über den Zeitraum
+        $agg = AC_GetAggregatedValues($archiveID, $varID, $startTime, $endTime, 0);
+        if (empty($agg)) {
+            return 0.0;
+        }
+        return floatval($agg[0]['Avg']);
+    }
+
     // Liefert ['rows' => [...], 'nodeColors' => [...]]
     // rows-Format: [source, target, value, unit]
 
     private function CollectData(): array
     {
-        $links        = json_decode($this->ReadPropertyString('Links'), true) ?? [];
+        $links      = json_decode($this->ReadPropertyString('Links'), true) ?? [];
+        $staticMode = $this->ReadPropertyBoolean('StaticMode');
         $rows         = [];
-        $nodeColorMap = []; // node-name => hex
+        $nodeColorMap = [];
 
-        $fallback = ['#2563eb','#16a34a','#ea580c','#7c3aed','#db2777',
-                    '#ca8a04','#0891b2','#dc2626','#059669','#9333ea'];
+        $startTime = $staticMode ? (int) GetValue($this->GetIDForIdent('StartDate')) : 0;
+        $endTime   = $staticMode ? (int) GetValue($this->GetIDForIdent('EndDate'))   : 0;
 
         foreach ($links as $link) {
             $source = trim($link['Source'] ?? '');
@@ -100,7 +168,9 @@ class Sankey extends IPSModule
                 continue;
             }
 
-            $value = floatval(GetValue($varID));
+            $value = $staticMode
+                ? $this->GetValueFromArchive($varID, $startTime, $endTime)
+                : floatval(GetValue($varID));
 
             $invert         = boolval($link['Invert'] ?? false);
             $ignoreNegative = boolval($link['IgnoreNegative'] ?? false);
@@ -139,7 +209,6 @@ class Sankey extends IPSModule
             $color = intval($link['Color'] ?? 0);
 
             if ($color > 0) {
-
                 $hex = sprintf('#%06x', $color);
 
                 if (!array_key_exists($source, $nodeColorMap)) {
@@ -160,13 +229,14 @@ class Sankey extends IPSModule
 
     private function GenerateHTML(): string
     {
-        $colorLabel  = sprintf('#%06x', $this->ReadPropertyInteger('ColorLabel'));
-        $data        = $this->CollectData();
+        $colorLabel = sprintf('#%06x', $this->ReadPropertyInteger('ColorLabel'));
+        $showValues = $this->ReadPropertyBoolean('ShowValues') ? 'true' : 'false';
+        $data       = $this->CollectData();
 
-        return $this->GenerateLocalHTML($colorLabel, $data);
+        return $this->GenerateLocalHTML($colorLabel, $showValues, $data);
     }
 
-    private function GenerateLocalHTML(string $colorLabel, array $data): string
+    private function GenerateLocalHTML(string $colorLabel, string $showValues, array $data): string
     {
         $jsRows   = json_encode($data['rows'], JSON_UNESCAPED_UNICODE);
         $jsColors = json_encode($data['nodeColors'], JSON_UNESCAPED_UNICODE);
@@ -219,7 +289,8 @@ class Sankey extends IPSModule
         drawSankey('chart_div', rows, {
             nodeColors: nodeColors,
             linkOpacity: 0.45,
-            labelColor: '{$colorLabel}'
+            labelColor: '{$colorLabel}',
+            showValues: {$showValues}
         });
     }
 

@@ -69,6 +69,7 @@
             fontSize:    13,
             labelColor:  '#1e293b',
             linkOpacity: 0.45,
+            showValues:  false,
             colors:      ['#2563eb','#16a34a','#ea580c','#7c3aed','#db2777',
                           '#ca8a04','#0891b2','#dc2626','#059669','#9333ea'],
             nodeColors:  {}
@@ -256,7 +257,7 @@
             var tx     = onLeft ? n.x + o.nodeWidth + 6 : n.x - 6;
             var t = svgEl('text', {
                 x: tx, y: n.y + n.h / 2,
-                dy: '0.35em',
+                dy: o.showValues ? '-0.15em' : '0.35em',
                 'text-anchor':  onLeft ? 'start' : 'end',
                 'font-family':  'Segoe UI,Arial,sans-serif',
                 'font-size':    o.fontSize,
@@ -265,6 +266,19 @@
                 'pointer-events': 'none'
             });
             t.textContent = n.id;
+
+            if (o.showValues) {
+                var valSpan = document.createElementNS(NS, 'tspan');
+                valSpan.setAttribute('x', tx);
+                valSpan.setAttribute('dy', '1.3em');
+                valSpan.setAttribute('font-size', o.fontSize - 1);
+                valSpan.setAttribute('font-weight', '400');
+                valSpan.setAttribute('fill-opacity', '0.75');
+                var dispVal = Math.max(n.inV, n.outV);
+                valSpan.textContent = fmt(dispVal) + (nodeUnit ? ' ' + nodeUnit : '');
+                t.appendChild(valSpan);
+            }
+
             svg.appendChild(t);
         });
 
