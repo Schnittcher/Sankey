@@ -101,8 +101,30 @@ class Sankey extends IPSModule
             }
 
             $value = floatval(GetValue($varID));
-            if ($value <= 0) {
+
+            $invert         = boolval($link['Invert'] ?? false);
+            $ignoreNegative = boolval($link['IgnoreNegative'] ?? false);
+
+            if ($invert) {
+                $value *= -1;
+            }
+
+            if ($value < 0) {
+                if ($ignoreNegative) {
+                    continue;
+                }
+
+                [$source, $target] = [$target, $source];
+                $value = abs($value);
+            }
+
+            if ($value == 0.0) {
                 continue;
+            }
+
+            if ($value < 0) {
+                [$source, $target] = [$target, $source];
+                $value = abs($value);
             }
 
             $unit = $this->GetVariableUnit($varID);

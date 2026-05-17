@@ -16,7 +16,7 @@
         },
         {
             "type": "Label",
-            "caption": "Each row defines a flow from a source node to a destination node. The value is read from the selected variable (numeric, > 0). The color is optional."
+            "caption": "Each row defines a flow between two nodes. The value is read from the selected variable. Positive values flow from Source to Target. The flow direction can be inverted and values < 0 can be ignored."
         },
         {
             "type": "List",
@@ -48,10 +48,28 @@
                 {
                     "caption": "Variable (Value)",
                     "name": "VariableID",
-                    "width": "250px",
+                    "width": "350px",
                     "add": 0,
                     "edit": {
                         "type": "SelectVariable"
+                    }
+                },
+                {
+                    "caption": "Invert",
+                    "name": "Invert",
+                    "width": "100px",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
+                    }
+                },
+                {
+                    "caption": "Ignore < 0",
+                    "name": "IgnoreNegative",
+                    "width": "110px",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
                     }
                 },
                 {
