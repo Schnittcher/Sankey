@@ -6,6 +6,20 @@
             "caption": "Label-Farbe (Nodes)"
         },
         {
+            "type": "CheckBox",
+            "name": "ShowValues",
+            "caption": "Werte an Nodes anzeigen"
+        },
+        {
+            "type": "CheckBox",
+            "name": "StaticMode",
+            "caption": "Statisches Diagramm (Werte aus Archiv)"
+        },
+        {
+            "type": "Label",
+            "caption": "Im statischen Modus werden Start- und Enddatum als Variablen unter der Instanz angezeigt. Zählervariablen verwenden den letzten Wert im Zeitraum, alle anderen den Durchschnitt."
+        },
+        {
             "type": "Label",
             "caption": " "
         },
