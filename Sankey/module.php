@@ -113,6 +113,17 @@ class Sankey extends IPSModule
     }
 
 
+    private function GetAggregationLevel(int $startTime, int $endTime): int
+    {
+        $diff = $endTime - $startTime;
+
+        if ($diff <= 2 * 86400)         return 0; // bis 2 Tage   → stündlich
+        if ($diff <= 28 * 86400)        return 1; // bis 4 Wochen → täglich
+        if ($diff <= 180 * 86400)       return 2; // bis 6 Monate → wöchentlich
+        if ($diff <= 3 * 365 * 86400)   return 3; // bis 3 Jahre  → monatlich
+        return 4;                                  // über 3 Jahre → jährlich
+    }
+
     private function GetValueFromArchive(int $varID, int $startTime, int $endTime): float
     {
         $archiveID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0] ?? 0;
@@ -127,10 +138,8 @@ class Sankey extends IPSModule
         $isCounter = boolval(AC_GetAggregationType($archiveID, $varID));
 
         // groupBy=0 funktioniert bei Zählern nicht immer – Fallback auf tagesweise (groupBy=2)
-        $agg = AC_GetAggregatedValues($archiveID, $varID, 1, $startTime, $endTime, 0);
-        if (empty($agg)) {
-            $agg = AC_GetAggregatedValues($archiveID, $varID, 1, $startTime, $endTime, 2);
-        }
+        $level = $this->GetAggregationLevel($startTime, $endTime);
+        $agg = AC_GetAggregatedValues($archiveID, $varID, $level, $startTime, $endTime, 0);
 
         if (empty($agg)) {
             $name = IPS_GetName($varID);
