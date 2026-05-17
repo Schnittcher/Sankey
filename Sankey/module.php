@@ -129,17 +129,9 @@ class Sankey extends IPSModule
 
         $isCounter = boolval(AC_GetAggregationType($archiveID, $varID)); // Cache füllen
 
-        if ($isCounter) {
-            // Letzten protokollierten Wert im Zeitraum verwenden
-            $values = AC_GetLoggedValues($archiveID, $varID, $startTime, $endTime, 0);
-            if (empty($values)) {
-                return 0.0;
-            }
-            return floatval(end($values)['Value']);
-        }
-
-        // Standard: Durchschnitt über den Zeitraum
-        $agg = AC_GetAggregatedValues($archiveID, $varID, $startTime, $endTime, 0);
+        // Beide Aggregationstypen: Durchschnitt über den Zeitraum
+        $agg = AC_GetAggregatedValues($archiveID, $varID, 0, $startTime, $endTime, 0);
+         
         if (empty($agg)) {
             return 0.0;
         }
