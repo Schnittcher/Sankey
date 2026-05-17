@@ -8,8 +8,6 @@ class Sankey extends IPSModule
     {
         parent::Create();
 
-        $this->RegisterPropertyString('Title', 'Energiefluss');
-        $this->RegisterPropertyInteger('ColorTitle', 0x1e293b);
         $this->RegisterPropertyInteger('ColorLabel', 0x1e293b);
         $this->RegisterPropertyString('Links', '[]');
 
@@ -83,6 +81,7 @@ class Sankey extends IPSModule
 
     // Liefert ['rows' => [...], 'nodeColors' => [...]]
     // rows-Format: [source, target, value, unit]
+
     private function CollectData(): array
     {
         $links        = json_decode($this->ReadPropertyString('Links'), true) ?? [];
@@ -90,7 +89,7 @@ class Sankey extends IPSModule
         $nodeColorMap = []; // node-name => hex
 
         $fallback = ['#2563eb','#16a34a','#ea580c','#7c3aed','#db2777',
-                     '#ca8a04','#0891b2','#dc2626','#059669','#9333ea'];
+                    '#ca8a04','#0891b2','#dc2626','#059669','#9333ea'];
 
         foreach ($links as $link) {
             $source = trim($link['Source'] ?? '');
@@ -102,8 +101,30 @@ class Sankey extends IPSModule
             }
 
             $value = floatval(GetValue($varID));
-            if ($value <= 0) {
+
+            $invert         = boolval($link['Invert'] ?? false);
+            $ignoreNegative = boolval($link['IgnoreNegative'] ?? false);
+
+            if ($invert) {
+                $value *= -1;
+            }
+
+            if ($value < 0) {
+                if ($ignoreNegative) {
+                    continue;
+                }
+
+                [$source, $target] = [$target, $source];
+                $value = abs($value);
+            }
+
+            if ($value == 0.0) {
                 continue;
+            }
+
+            if ($value < 0) {
+                [$source, $target] = [$target, $source];
+                $value = abs($value);
             }
 
             $unit = $this->GetVariableUnit($varID);
@@ -115,10 +136,19 @@ class Sankey extends IPSModule
                 $unit,
             ];
 
-            // Farbe der Quell-Node speichern (erste Definition gewinnt)
             $color = intval($link['Color'] ?? 0);
-            if ($color > 0 && !array_key_exists($source, $nodeColorMap)) {
-                $nodeColorMap[$source] = sprintf('#%06x', $color);
+
+            if ($color > 0) {
+
+                $hex = sprintf('#%06x', $color);
+
+                if (!array_key_exists($source, $nodeColorMap)) {
+                    $nodeColorMap[$source] = $hex;
+                }
+
+                if (!array_key_exists($target, $nodeColorMap)) {
+                    $nodeColorMap[$target] = $hex;
+                }
             }
         }
 
@@ -130,15 +160,13 @@ class Sankey extends IPSModule
 
     private function GenerateHTML(): string
     {
-        $title       = htmlspecialchars($this->ReadPropertyString('Title'), ENT_QUOTES, 'UTF-8');
-        $colorTitle  = sprintf('#%06x', $this->ReadPropertyInteger('ColorTitle'));
         $colorLabel  = sprintf('#%06x', $this->ReadPropertyInteger('ColorLabel'));
         $data        = $this->CollectData();
 
-        return $this->GenerateLocalHTML($title, $colorTitle, $colorLabel, $data);
+        return $this->GenerateLocalHTML($colorLabel, $data);
     }
 
-    private function GenerateLocalHTML(string $title, string $colorTitle, string $colorLabel, array $data): string
+    private function GenerateLocalHTML(string $colorLabel, array $data): string
     {
         $jsRows   = json_encode($data['rows'], JSON_UNESCAPED_UNICODE);
         $jsColors = json_encode($data['nodeColors'], JSON_UNESCAPED_UNICODE);
@@ -152,7 +180,6 @@ class Sankey extends IPSModule
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:transparent; font-family:'Segoe UI',Arial,sans-serif; padding:12px; }
-  h1 { text-align:center; color:{$colorTitle}; font-size:1.2em; font-weight:600; margin-bottom:10px; }
   html, body {
     width:100%;
     height:100%;
@@ -168,15 +195,6 @@ class Sankey extends IPSModule
     flex-direction:column;
     }
 
-    h1 {
-    flex:0 0 auto;
-    text-align:center;
-    color:{$colorTitle};
-    font-size:1.2em;
-    font-weight:600;
-    margin:8px 0;
-    }
-
     #chart_div {
         flex:1 1 auto;
         width:100%;
@@ -188,7 +206,6 @@ class Sankey extends IPSModule
 </style>
 </head>
 <body>
-<h1>{$title}</h1>
 <div id="chart_div"></div>
 <script>{$sankeyJS}</script>
 <script>
