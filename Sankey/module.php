@@ -115,7 +115,7 @@ class Sankey extends IPSModule
 
     private function GetValueFromArchive(int $varID, int $startTime, int $endTime): float
     {
-        $archiveID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
+        $archiveID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0] ?? 0;
         if ($archiveID === 0) {
             return 0.0;
         }
@@ -124,18 +124,32 @@ class Sankey extends IPSModule
             return 0.0;
         }
 
-        // Aggregationstyp ermitteln: 0 = Standard, 1 = Zähler
-        $isCounter = false;
+        $isCounter = boolval(AC_GetAggregationType($archiveID, $varID));
 
-        $isCounter = boolval(AC_GetAggregationType($archiveID, $varID)); // Cache füllen
-
-        // Beide Aggregationstypen: Durchschnitt über den Zeitraum
+        // groupBy=0 funktioniert bei Zählern nicht immer – Fallback auf tagesweise (groupBy=2)
         $agg = AC_GetAggregatedValues($archiveID, $varID, 1, $startTime, $endTime, 0);
-         
         if (empty($agg)) {
+            $agg = AC_GetAggregatedValues($archiveID, $varID, 1, $startTime, $endTime, 2);
+        }
+
+        if (empty($agg)) {
+            $name = IPS_GetName($varID);
+            $this->LogMessage(
+                "Sankey: Keine Archivdaten für Variable \"$name\" ($varID) im Zeitraum "
+                . date('d.m.Y', $startTime) . ' – ' . date('d.m.Y', $endTime) . '.',
+                KL_WARNING
+            );
             return 0.0;
         }
-        return floatval($agg[0]['Avg']);
+
+        $sum = 0.0;
+        foreach ($agg as $a) {
+            $sum += floatval($a['Avg']);
+        }
+
+        // Zähler: Summe aller Intervall-Avg (= Gesamtverbrauch im Zeitraum)
+        // Standard: Durchschnitt aller Intervall-Avg (= mittlerer Wert im Zeitraum)
+        return $isCounter ? $sum : $sum / count($agg);
     }
 
     // Liefert ['rows' => [...], 'nodeColors' => [...]]
