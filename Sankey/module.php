@@ -146,8 +146,14 @@ class Sankey extends IPSModule
                     $nodeColorMap[$source] = $hex;
                 }
 
-                if (!array_key_exists($target, $nodeColorMap)) {
-                    $nodeColorMap[$target] = $hex;
+                $color = intval($link['Color'] ?? 0);
+
+                if ($color > 0) {
+                    $hex = sprintf('#%06x', $color);
+
+                    if (!array_key_exists($source, $nodeColorMap)) {
+                        $nodeColorMap[$source] = $hex;
+                    }
                 }
             }
         }
