@@ -159,6 +159,21 @@ class Sankey extends IPSModule
         $startTime = $staticMode ? (int) GetValue($this->GetIDForIdent('StartDate')) : 0;
         $endTime   = $staticMode ? (int) GetValue($this->GetIDForIdent('EndDate'))   : 0;
 
+        if ($staticMode) {
+            $archiveID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0] ?? 0;
+            foreach ($links as $link) {
+                $varID = intval($link['VariableID'] ?? 0);
+                if ($varID <= 0 || !IPS_VariableExists($varID)) {
+                    continue;
+                }
+                if ($archiveID === 0 || !AC_GetLoggingStatus($archiveID, $varID)) {
+                    $name = IPS_VariableExists($varID) ? IPS_GetName($varID) : "ID $varID";
+                    $this->LogMessage("Sankey statisches Diagramm: Variable \"$name\" ($varID) wird nicht aufgezeichnet – Ausgabe abgebrochen.", KL_WARNING);
+                    return ['rows' => [], 'nodeColors' => [], 'staticMode' => true, 'startTs' => $startTime, 'endTs' => $endTime];
+                }
+            }
+        }
+
         foreach ($links as $link) {
             $source = trim($link['Source'] ?? '');
             $target = trim($link['Target'] ?? '');
