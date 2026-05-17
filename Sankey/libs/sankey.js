@@ -70,6 +70,7 @@
             labelColor:  '#1e293b',
             linkOpacity: 0.45,
             showValues:  false,
+            staticMode:  false,
             colors:      ['#2563eb','#16a34a','#ea580c','#7c3aed','#db2777',
                           '#ca8a04','#0891b2','#dc2626','#059669','#9333ea'],
             nodeColors:  {}
@@ -150,6 +151,20 @@
         var srcOff = Object.create(null);
         var tgtOff = Object.create(null);
         nodes.forEach(function (n) { srcOff[n.id] = n.y; tgtOff[n.id] = n.y; });
+
+        /* ── Node-Tooltip helper ────────────────────────────────────── */
+        function nodeTooltip(n, unit) {
+            var u = unit ? '&nbsp;' + unit : '';
+            var html = '<b>' + n.id + '</b>';
+            if (o.staticMode) {
+                var val = Math.max(n.inV, n.outV);
+                html += '<br>' + fmt(val) + u;
+            } else {
+                if (n.inV  > 0) html += '<br>Eingang:&nbsp;'  + fmt(n.inV)  + u;
+                if (n.outV > 0) html += '<br>Ausgang:&nbsp;' + fmt(n.outV) + u;
+            }
+            return html;
+        }
 
         /* ── Render ──────────────────────────────────────────────────── */
         var svg  = svgEl('svg', { width: W, height: H, viewBox: '0 0 ' + W + ' ' + H });
@@ -233,18 +248,10 @@
             });
             rect.addEventListener('mouseenter', function () {
                 rect.setAttribute('filter', 'brightness(1.25)');
-                var u = nodeUnit ? '&nbsp;' + nodeUnit : '';
-                var html = '<b>' + n.id + '</b>';
-                if (n.inV  > 0) html += '<br>Eingang:&nbsp;'  + fmt(n.inV)  + u;
-                if (n.outV > 0) html += '<br>Ausgang:&nbsp;' + fmt(n.outV) + u;
-                showTip(tip, svg, html, mouseX, mouseY);
+                showTip(tip, svg, nodeTooltip(n, nodeUnit), mouseX, mouseY);
             });
             rect.addEventListener('mousemove', function () {
-                var u = nodeUnit ? '&nbsp;' + nodeUnit : '';
-                var html = '<b>' + n.id + '</b>';
-                if (n.inV  > 0) html += '<br>Eingang:&nbsp;'  + fmt(n.inV)  + u;
-                if (n.outV > 0) html += '<br>Ausgang:&nbsp;' + fmt(n.outV) + u;
-                showTip(tip, svg, html, mouseX, mouseY);
+                showTip(tip, svg, nodeTooltip(n, nodeUnit), mouseX, mouseY);
             });
             rect.addEventListener('mouseleave', function () {
                 rect.removeAttribute('filter');

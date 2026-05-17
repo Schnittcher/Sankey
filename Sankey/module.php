@@ -285,36 +285,40 @@ class Sankey extends IPSModule
         flex-shrink:0;
         align-items:center;
         justify-content:center;
-        gap:6px;
-        padding:4px 8px 2px;
-        font-size:12px;
-        font-family:'Segoe UI',Arial,sans-serif;
-        color:#64748b;
+        gap:8px;
+        padding:5px 8px 3px;
     }
 
-    #date_range input[type="date"] {
-        border:1px solid rgba(100,116,139,0.35);
-        border-radius:4px;
-        padding:2px 5px;
+    .dp-input {
+        background:rgba(255,255,255,0.07);
+        border:1px solid rgba(255,255,255,0.13);
+        border-radius:6px;
+        padding:4px 8px;
         font-size:12px;
         font-family:'Segoe UI',Arial,sans-serif;
-        background:rgba(255,255,255,0.10);
-        color:inherit;
+        color:#94a3b8;
         cursor:pointer;
         outline:none;
+        color-scheme:dark;
     }
 
-    #date_range input[type="date"]:hover {
-        border-color:rgba(100,116,139,0.65);
+    .dp-input:hover {
+        background:rgba(255,255,255,0.13);
+        border-color:rgba(255,255,255,0.25);
+    }
+
+    .dp-sep {
+        font-size:12px;
+        color:#475569;
     }
 </style>
 </head>
 <body>
 <div id="chart_div"></div>
 <div id="date_range">
-    <input type="date" id="inp_start">
-    <span>–</span>
-    <input type="date" id="inp_end">
+    <input type="date" id="inp_start" class="dp-input">
+    <span class="dp-sep">→</span>
+    <input type="date" id="inp_end" class="dp-input">
 </div>
 <script>{$sankeyJS}</script>
 <script>
@@ -324,7 +328,7 @@ class Sankey extends IPSModule
     var startTs    = {$jsStartTs};
     var endTs      = {$jsEndTs};
 
-    function tsToDate(ts) {
+    function tsToInputVal(ts) {
         if (!ts) return '';
         var d = new Date(ts * 1000);
         return d.getFullYear() + '-' +
@@ -343,8 +347,8 @@ class Sankey extends IPSModule
         if (!el) return;
         if (staticMode) {
             el.style.display = 'flex';
-            document.getElementById('inp_start').value = tsToDate(startTs);
-            document.getElementById('inp_end').value   = tsToDate(endTs);
+            document.getElementById('inp_start').value = tsToInputVal(startTs);
+            document.getElementById('inp_end').value   = tsToInputVal(endTs);
         } else {
             el.style.display = 'none';
         }
@@ -355,10 +359,11 @@ class Sankey extends IPSModule
         chart.innerHTML = '';
 
         drawSankey('chart_div', rows, {
-            nodeColors: nodeColors,
+            nodeColors:  nodeColors,
             linkOpacity: 0.45,
-            labelColor: '{$colorLabel}',
-            showValues: {$showValues}
+            labelColor:  '{$colorLabel}',
+            showValues:  {$showValues},
+            staticMode:  staticMode
         });
 
         updateDateRange();
