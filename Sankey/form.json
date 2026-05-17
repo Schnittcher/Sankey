@@ -90,7 +90,7 @@
                     "caption": "Color (Source)",
                     "name": "Color",
                     "width": "120px",
-                    "add": 0,
+                    "add": 2450411,
                     "edit": {
                         "type": "SelectColor"
                     }

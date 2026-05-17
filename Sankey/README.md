@@ -36,17 +36,6 @@ Titel Farbe | Hier kann die Farbe des Titels eingestellt werden.
 Label Farbe | Hier kann die Farbe der Labels im Diagramm  eingestellt werden.
 Verbindungen | Hier wird das Diagramm konfiguriert
 
-**Verbindungen**
-Name     | Beschreibung
--------- | ------------------
-Quelle (Von) | Die Quelle, von wo aus die Energie fließt.
-Ziel (Nach) | Das Ziel, wohin die die Energie fließt.
-Variable (Wert) Farbe | Der Wert
-Invertieren | Hier wird das Diagramm konfiguriert
-< 0 ignorieren | Diese Funktion bietet die Möglichkeit, bei Variablen nur den positiven Wert abzugreifen oder anfällige Variablen, welche um den Nullpunkt herum etwas pendeln, den Minusanteil weg zu filtern (Speziell bei Leistungsvariablen)
-Farbe (Quelle) | Die Farbe für das Diagramm
-
-
 ### 4. Statusvariablen
 
 Die Statusvariablen/Kategorien werden automatisch angelegt. Das Löschen einzelner kann zu Fehlfunktionen führen.

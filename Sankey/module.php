@@ -224,6 +224,9 @@ class Sankey extends IPSModule
         return [
             'rows'       => $rows,
             'nodeColors' => $nodeColorMap,
+            'staticMode' => $staticMode,
+            'startTs'    => $staticMode ? $startTime : null,
+            'endTs'      => $staticMode ? $endTime   : null,
         ];
     }
 
@@ -240,6 +243,9 @@ class Sankey extends IPSModule
     {
         $jsRows   = json_encode($data['rows'], JSON_UNESCAPED_UNICODE);
         $jsColors = json_encode($data['nodeColors'], JSON_UNESCAPED_UNICODE);
+        $jsStatic = ($data['staticMode'] ?? false) ? 'true' : 'false';
+        $jsStartTs = json_encode($data['startTs'] ?? null);
+        $jsEndTs   = json_encode($data['endTs'] ?? null);
         $sankeyJS = file_get_contents(__DIR__ . '/libs/sankey.js');
 
         return <<<HTML
@@ -273,14 +279,76 @@ class Sankey extends IPSModule
         opacity:1;
         transition:opacity .25s ease;
     }
+
+    #date_range {
+        display:none;
+        flex-shrink:0;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        padding:4px 8px 2px;
+        font-size:12px;
+        font-family:'Segoe UI',Arial,sans-serif;
+        color:#64748b;
+    }
+
+    #date_range input[type="date"] {
+        border:1px solid rgba(100,116,139,0.35);
+        border-radius:4px;
+        padding:2px 5px;
+        font-size:12px;
+        font-family:'Segoe UI',Arial,sans-serif;
+        background:rgba(255,255,255,0.10);
+        color:inherit;
+        cursor:pointer;
+        outline:none;
+    }
+
+    #date_range input[type="date"]:hover {
+        border-color:rgba(100,116,139,0.65);
+    }
 </style>
 </head>
 <body>
 <div id="chart_div"></div>
+<div id="date_range">
+    <input type="date" id="inp_start">
+    <span>–</span>
+    <input type="date" id="inp_end">
+</div>
 <script>{$sankeyJS}</script>
 <script>
-    var rows = {$jsRows};
+    var rows       = {$jsRows};
     var nodeColors = {$jsColors};
+    var staticMode = {$jsStatic};
+    var startTs    = {$jsStartTs};
+    var endTs      = {$jsEndTs};
+
+    function tsToDate(ts) {
+        if (!ts) return '';
+        var d = new Date(ts * 1000);
+        return d.getFullYear() + '-' +
+            String(d.getMonth() + 1).padStart(2, '0') + '-' +
+            String(d.getDate()).padStart(2, '0');
+    }
+
+    function dateToTs(val) {
+        if (!val) return 0;
+        var p = val.split('-');
+        return Math.floor(new Date(+p[0], +p[1] - 1, +p[2]).getTime() / 1000);
+    }
+
+    function updateDateRange() {
+        var el = document.getElementById('date_range');
+        if (!el) return;
+        if (staticMode) {
+            el.style.display = 'flex';
+            document.getElementById('inp_start').value = tsToDate(startTs);
+            document.getElementById('inp_end').value   = tsToDate(endTs);
+        } else {
+            el.style.display = 'none';
+        }
+    }
 
     function render() {
         var chart = document.getElementById('chart_div');
@@ -292,16 +360,31 @@ class Sankey extends IPSModule
             labelColor: '{$colorLabel}',
             showValues: {$showValues}
         });
+
+        updateDateRange();
     }
 
     function handleMessage(message) {
         var data = typeof message === 'string' ? JSON.parse(message) : message;
 
-        rows = data.rows || [];
+        rows       = data.rows       || [];
         nodeColors = data.nodeColors || {};
+        if (data.staticMode !== undefined) staticMode = data.staticMode;
+        if (data.startTs    !== undefined) startTs    = data.startTs;
+        if (data.endTs      !== undefined) endTs      = data.endTs;
 
         render();
     }
+
+    document.getElementById('inp_start').addEventListener('change', function () {
+        startTs = dateToTs(this.value);
+        requestAction('StartDate', startTs);
+    });
+
+    document.getElementById('inp_end').addEventListener('change', function () {
+        endTs = dateToTs(this.value);
+        requestAction('EndDate', endTs);
+    });
 
     window.addEventListener('message', function(event) {
         handleMessage(event.data);
