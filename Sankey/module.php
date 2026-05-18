@@ -205,6 +205,7 @@ class Sankey extends IPSModule
             $source = trim($link['Source'] ?? '');
             $target = trim($link['Target'] ?? '');
             $varID  = intval($link['VariableID'] ?? 0);
+            $infoVarID = intval($link['InfoVariableID'] ?? 0);
 
             if ($source === '' || $target === '' || $varID <= 0 || !IPS_VariableExists($varID)) {
                 continue;
@@ -253,11 +254,30 @@ class Sankey extends IPSModule
 
                 $unit = $this->GetVariableUnit($varID);
 
+                $infoText = '';
+
+                if ($infoVarID > 0 && IPS_VariableExists($infoVarID)) {
+                    if ($staticMode) {
+                        $infoValues = $this->GetValuesFromArchive($infoVarID, $startTime, $endTime);
+                        $infoValue = 0.0;
+
+                        foreach ($infoValues as $infoEntry) {
+                            $infoValue += floatval($infoEntry['value']);
+                        }
+                    } else {
+                        $infoValue = abs(floatval(GetValue($infoVarID)));
+                    }
+
+                    $infoUnit = $this->GetVariableUnit($infoVarID);
+                    $infoText = number_format($infoValue, 2, ',', "'") . ($infoUnit !== '' ? ' ' . $infoUnit : '');
+                }
+
                 $rows[] = [
                     htmlspecialchars($rowSource, ENT_QUOTES, 'UTF-8'),
                     htmlspecialchars($rowTarget, ENT_QUOTES, 'UTF-8'),
                     $value,
                     $unit,
+                    $infoText,
                 ];
 
                 $color = intval($link['Color'] ?? 0);

@@ -87,12 +87,13 @@
         /* ── Build graph ─────────────────────────────────────────────── */
         var nodeMap = Object.create(null);
         var links = rows.map(function (r) {
-            var s = String(r[0]), t = String(r[1]), v = Number(r[2]), u = r[3] ? String(r[3]) : '';
+            var s = String(r[0]), t = String(r[1]), v = Number(r[2]), u = r[3] ? String(r[3]) : '', info = r[4] ? String(r[4]) : '';
             if (!nodeMap[s]) nodeMap[s] = { id: s, inV: 0, outV: 0, col: -1 };
             if (!nodeMap[t]) nodeMap[t] = { id: t, inV: 0, outV: 0, col: -1 };
             nodeMap[s].outV += v;
             nodeMap[t].inV  += v;
-            return { s: s, t: t, v: v, u: u };
+            var info = r[4] ? String(r[4]) : '';
+            return { s: s, t: t, v: v, u: u, info: info };
         });
         var nodes = Object.keys(nodeMap).map(function (k) { return nodeMap[k]; });
 
@@ -216,12 +217,12 @@
             path.addEventListener('mouseenter', function () {
                 path.setAttribute('fill-opacity', Math.min(1, o.linkOpacity * 2));
                 showTip(tip, svg,
-                    '<b>' + l.s + '</b> &rarr; <b>' + l.t + '</b><br>' + fmt(l.v) + (l.u ? '&nbsp;' + l.u : ''),
+                    '<b>' + l.s + '</b> &rarr; <b>' + l.t + '</b><br>' + fmt(l.v) + (l.u ? '&nbsp;' + l.u : '') + (l.info ? ' (' + l.info + ')' : ''),
                     mouseX, mouseY);
             });
             path.addEventListener('mousemove', function () {
                 showTip(tip, svg,
-                    '<b>' + l.s + '</b> &rarr; <b>' + l.t + '</b><br>' + fmt(l.v) + (l.u ? '&nbsp;' + l.u : ''),
+                    '<b>' + l.s + '</b> &rarr; <b>' + l.t + '</b><br>' + fmt(l.v) + (l.u ? '&nbsp;' + l.u : '') + (l.info ? ' (' + l.info + ')' : ''),
                     mouseX, mouseY);
             });
             path.addEventListener('mouseleave', function () {
@@ -277,10 +278,30 @@
             if (o.showValues) {
                 var dispVal = Math.max(n.inV, n.outV);
 
+                var nodeInfo = '';
+
+                links.forEach(function(l) {
+                    // Keine Zusatzinfo bei Sammel-/Durchgangs-Nodes in der Mitte
+                    if (n.inV > 0 && n.outV > 0) {
+                        return;
+                    }
+
+                    // Links: Node ist Quelle
+                    if (!nodeInfo && l.s === n.id && l.info) {
+                        nodeInfo = l.info;
+                    }
+
+                    // Rechts: Node ist Ziel
+                    if (!nodeInfo && l.t === n.id && l.info) {
+                        nodeInfo = l.info;
+                    }
+                });
+
                 t.textContent =
                     n.id + '  ' +
                     fmt(dispVal) +
-                    (nodeUnit ? ' ' + nodeUnit : '');
+                    (nodeUnit ? ' ' + nodeUnit : '') +
+                    (nodeInfo ? ' (' + nodeInfo + ')' : '');
             }
 
             svg.appendChild(t);
