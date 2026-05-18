@@ -42,12 +42,14 @@ Quele (Von) | Hier wird die Quelle hinterlegt, wo der Fluss für die Variable an
 Ziel  (Nach) | Hier wird das Ziel hinterlegt, wo der Fluss für die Variable endet.
 Variable | Hier wird die Variable hinterlegt, welche für diesen Fluss genutzt werden soll.
 Invertieren | Diese Einstellung dreht das Vorzeichen der Variable um.
-<0 ignorieren | Diese Einstellung lässt aus negative Werte zu, dazu gibt es Sonderfälle, siehe unten.
+<0 ignorieren | Diese Einstellung lässt keine negative Werte zu, dazu gibt es Sonderfälle, siehe unten.
 Farbe | Hier wird die Farbe für den Fluss angegeben
 
 __Sonderfälle__:
 
-**Statisches Diagramm, Standard Aggregation und < 0 ignorieren**\
+**Statisches Diagramm, Standard Aggregation und < 0 ignorieren
+Wird die Funktion <0 ignorieren nicht gesetzt, werden Erzeuger / Verbraucher bei entsprechenden Variablenwerten auf beiden Seiten dargestellt.** \
+
 Sobald hier die Funktion <0 ignorieren gesetzt wird, werden Erzeuger / Verbraucher ggf. auf beiden Seiten, dargestellt.
 
 <ins>Beispiel:</ins>
@@ -60,8 +62,8 @@ Der Versorger hat im Durchschnitt 72,36 Watt geliefert und es wurde im Durchschn
 
 ![Statisches Diagramm, Standard Aggregation und < 0 ignorieren](imgs/statisches_diagramm_vorzeichen_sonderfall.png)
 
-**Dynamisches Diagramm, Standard Aggregation und < 0 ignorieren** \
-Sobald sich hier das Vorzeichen ändert, wechselt der Eintrag automatisch die Seite.
+**Dynamisches Diagramm, Standard Aggregation und < 0 ignorieren
+Wird <0 ignorieren nicht gewählt, wechselt der Eintrag automatisch die Seite, sobald sich hier das Vorzeichen ändert**
 
 <ins>Beispiel:</ins>
 Wenn eine Batterie Strom liefert, steht diese auf der linken Seite, sobald die Batterie geladen wird, landet sie auf der anderen Seite des Flusses.
