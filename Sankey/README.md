@@ -8,7 +8,6 @@
     - [2. Vorraussetzungen](#2-vorraussetzungen)
     - [3. Einrichten der Instanzen in IP-Symcon](#3-einrichten-der-instanzen-in-ip-symcon)
     - [4. Statusvariablen](#4-statusvariablen)
-      - [Statusvariablen](#statusvariablen)
     - [5. PHP-Befehlsreferenz](#5-php-befehlsreferenz)
   - [6. Spenden](#6-spenden)
   - [7. Lizenz](#7-lizenz)
@@ -31,20 +30,47 @@ __Konfigurationsseite__:
 
 Name     | Beschreibung
 -------- | ------------------
-Titel des Diagramms | Hier kann ein Titel für das DIagramm festgelegt werden.
-Titel Farbe | Hier kann die Farbe des Titels eingestellt werden.
 Label Farbe | Hier kann die Farbe der Labels im Diagramm  eingestellt werden.
+Werte an Nodes anzeigen | Hier kann eingestellt werden, ob die Werte an den Nodes zusätzlich angezeigt werden.
+Statisches Diagramm | Hier kann eingestellt werden, ob es sich um ein statisches Diagramm handelt, das heißt in der Visu kann der Zeitraum angegeben werden.
 Verbindungen | Hier wird das Diagramm konfiguriert
+
+__Verbindungen__:
+Name     | Beschreibung
+-------- | ------------------
+Quele (Von) | Hier wird die Quelle hinterlegt, wo der Fluss für die Variable anfängt.
+Ziel  (Nach) | Hier wird das Ziel hinterlegt, wo der Fluss für die Variable endet.
+Variable | Hier wird die Variable hinterlegt, welche für diesen Fluss genutzt werden soll.
+Invertieren | Diese Einstellung dreht das Vorzeichen der Variable um.
+<0 ignorieren | Diese Einstellung lässt aus negative Werte zu, dazu gibt es Sonderfälle, siehe unten.
+Farbe | Hier wird die Farbe für den Fluss angegeben
+
+__Sonderfälle__:
+
+**Statisches Diagramm, Standard Aggregation und < 0 ignorieren**\
+Sobald hier die Funktion <0 ignorieren gesetzt wird, werden Erzeuger / Verbraucher ggf. auf beiden Seiten, dargestellt.
+
+<ins>Beispiel:</ins>
+EVU und Batterie stehen auf beiden Seiten, dies bedeutet in diesem Fall nichts anders, als das in diesem Zeitraum im Durchschnitt
+
+Der Speicher 120,96 Watt geliefert hat und mit 128,29 Watt geladen wurden.
+
+Der Versorger hat im Durchschnitt 72,36 Watt geliefert und es wurde im Durchschnitt 1262,39 Watt eingespeist.
+
+
+![Statisches Diagramm, Standard Aggregation und < 0 ignorieren](imgs/statisches_diagramm_vorzeichen_sonderfall.png)
+
+**Dynamisches Diagramm, Standard Aggregation und < 0 ignorieren** \
+Sobald sich hier das Vorzeichen ändert, wechselt der Eintrag automatisch die Seite.
+
+<ins>Beispiel:</ins>
+Wenn eine Batterie Strom liefert, steht diese auf der linken Seite, sobald die Batterie geladen wird, landet sie auf der anderen Seite des Flusses.
+
 
 ### 4. Statusvariablen
 
 Die Statusvariablen/Kategorien werden automatisch angelegt. Das Löschen einzelner kann zu Fehlfunktionen führen.
 
-#### Statusvariablen
-
-Name   | Typ     | Beschreibung
------- | ------- | ------------
-Sankey-DIagramm|String| IN dieser Variable wird das DIagramm abgelegt.
 
 ### 5. PHP-Befehlsreferenz
 
