@@ -264,7 +264,7 @@
             var tx     = onLeft ? n.x + o.nodeWidth + 6 : n.x - 6;
             var t = svgEl('text', {
                 x: tx, y: n.y + n.h / 2,
-                dy: o.showValues ? '-0.15em' : '0.35em',
+                dy: '0.35em',
                 'text-anchor':  onLeft ? 'start' : 'end',
                 'font-family':  'Segoe UI,Arial,sans-serif',
                 'font-size':    o.fontSize,
@@ -275,15 +275,12 @@
             t.textContent = n.id;
 
             if (o.showValues) {
-                var valSpan = document.createElementNS(NS, 'tspan');
-                valSpan.setAttribute('x', tx);
-                valSpan.setAttribute('dy', '1.3em');
-                valSpan.setAttribute('font-size', o.fontSize - 1);
-                valSpan.setAttribute('font-weight', '400');
-                valSpan.setAttribute('fill-opacity', '0.75');
                 var dispVal = Math.max(n.inV, n.outV);
-                valSpan.textContent = fmt(dispVal) + (nodeUnit ? ' ' + nodeUnit : '');
-                t.appendChild(valSpan);
+
+                t.textContent =
+                    n.id + '  ' +
+                    fmt(dispVal) +
+                    (nodeUnit ? ' ' + nodeUnit : '');
             }
 
             svg.appendChild(t);

@@ -127,6 +127,7 @@ class Sankey extends IPSModule
     private function GetValueFromArchive(int $varID, int $startTime, int $endTime): float
     {
         $archiveID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0] ?? 0;
+
         if ($archiveID === 0) {
             return 0.0;
         }
@@ -137,57 +138,57 @@ class Sankey extends IPSModule
 
         $isCounter = boolval(AC_GetAggregationType($archiveID, $varID));
 
-        // groupBy=0 funktioniert bei Zählern nicht immer – Fallback auf tagesweise (groupBy=2)
         $level = $this->GetAggregationLevel($startTime, $endTime);
-        $agg = AC_GetAggregatedValues($archiveID, $varID, $level, $startTime, $endTime, 0);
+
+        $agg = AC_GetAggregatedValues(
+            $archiveID,
+            $varID,
+            $level,
+            $startTime,
+            $endTime,
+            0
+        );
 
         if (empty($agg)) {
+
             $name = IPS_GetName($varID);
+
             $this->LogMessage(
                 "Sankey: Keine Archivdaten für Variable \"$name\" ($varID) im Zeitraum "
                 . date('d.m.Y', $startTime) . ' – ' . date('d.m.Y', $endTime) . '.',
                 KL_WARNING
             );
+
             return 0.0;
         }
 
         $sum = 0.0;
+
         foreach ($agg as $a) {
             $sum += floatval($a['Avg']);
         }
 
-        // Zähler: Summe aller Intervall-Avg (= Gesamtverbrauch im Zeitraum)
-        // Standard: Durchschnitt aller Intervall-Avg (= mittlerer Wert im Zeitraum)
-        return $isCounter ? $sum : $sum / count($agg);
-    }
+        // Zähler:
+        // Summe aller Intervallwerte
+        if ($isCounter) {
+            return $sum;
+        }
 
-    // Liefert ['rows' => [...], 'nodeColors' => [...]]
-    // rows-Format: [source, target, value, unit]
+        // Nicht-Zähler:
+        // normaler Durchschnitt MIT Vorzeichen
+        return $sum / count($agg);
+    }
 
     private function CollectData(): array
     {
-        $links      = json_decode($this->ReadPropertyString('Links'), true) ?? [];
-        $staticMode = $this->ReadPropertyBoolean('StaticMode');
+        $links        = json_decode($this->ReadPropertyString('Links'), true) ?? [];
+        $staticMode   = $this->ReadPropertyBoolean('StaticMode');
+
         $rows         = [];
         $nodeColorMap = [];
 
         $startTime = $staticMode ? (int) GetValue($this->GetIDForIdent('StartDate')) : 0;
         $endTime   = $staticMode ? (int) GetValue($this->GetIDForIdent('EndDate'))   : 0;
-
-        if ($staticMode) {
-            $archiveID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0] ?? 0;
-            foreach ($links as $link) {
-                $varID = intval($link['VariableID'] ?? 0);
-                if ($varID <= 0 || !IPS_VariableExists($varID)) {
-                    continue;
-                }
-                if ($archiveID === 0 || !AC_GetLoggingStatus($archiveID, $varID)) {
-                    $name = IPS_VariableExists($varID) ? IPS_GetName($varID) : "ID $varID";
-                    $this->LogMessage("Sankey statisches Diagramm: Variable \"$name\" ($varID) wird nicht aufgezeichnet – Ausgabe abgebrochen.", KL_WARNING);
-                    return ['rows' => [], 'nodeColors' => [], 'staticMode' => true, 'startTs' => $startTime, 'endTs' => $endTime];
-                }
-            }
-        }
 
         foreach ($links as $link) {
             $source = trim($link['Source'] ?? '');
@@ -198,55 +199,68 @@ class Sankey extends IPSModule
                 continue;
             }
 
-            $value = $staticMode
-                ? $this->GetValueFromArchive($varID, $startTime, $endTime)
-                : floatval(GetValue($varID));
-
-            $invert         = boolval($link['Invert'] ?? false);
-            $ignoreNegative = boolval($link['IgnoreNegative'] ?? false);
-
-            if ($invert) {
-                $value *= -1;
+            if ($staticMode) {
+                $values = $this->GetValuesFromArchive($varID, $startTime, $endTime);
+            } else {
+                $v = floatval(GetValue($varID));
+                $values = [
+                    [
+                        'value'   => abs($v),
+                        'reverse' => $v < 0,
+                        'split'   => false
+                    ]
+                ];
             }
 
-            if ($value < 0) {
-                if ($ignoreNegative) {
+            foreach ($values as $entry) {
+                $value   = floatval($entry['value']);
+                $reverse = boolval($entry['reverse']);
+                $split   = boolval($entry['split']);
+
+                $invert         = boolval($link['Invert'] ?? false);
+                $ignoreNegative = boolval($link['IgnoreNegative'] ?? false);
+
+                if ($invert) {
+                    $reverse = !$reverse;
+                }
+
+                if ($value <= 0) {
                     continue;
                 }
 
-                [$source, $target] = [$target, $source];
-                $value = abs($value);
-            }
+                if ($reverse) {
+                    if ($ignoreNegative) {
+                        continue;
+                    }
 
-            if ($value == 0.0) {
-                continue;
-            }
-
-            if ($value < 0) {
-                [$source, $target] = [$target, $source];
-                $value = abs($value);
-            }
-
-            $unit = $this->GetVariableUnit($varID);
-
-            $rows[] = [
-                htmlspecialchars($source, ENT_QUOTES, 'UTF-8'),
-                htmlspecialchars($target, ENT_QUOTES, 'UTF-8'),
-                $value,
-                $unit,
-            ];
-
-            $color = intval($link['Color'] ?? 0);
-
-            if ($color > 0) {
-                $hex = sprintf('#%06x', $color);
-
-                if (!array_key_exists($source, $nodeColorMap)) {
-                    $nodeColorMap[$source] = $hex;
+                    $rowSource = $target;
+                    $rowTarget = $split ? $source . '-' : $source;
+                } else {
+                    $rowSource = $source;
+                    $rowTarget = $target;
                 }
 
-                if (!array_key_exists($target, $nodeColorMap)) {
-                    $nodeColorMap[$target] = $hex;
+                $unit = $this->GetVariableUnit($varID);
+
+                $rows[] = [
+                    htmlspecialchars($rowSource, ENT_QUOTES, 'UTF-8'),
+                    htmlspecialchars($rowTarget, ENT_QUOTES, 'UTF-8'),
+                    $value,
+                    $unit,
+                ];
+
+                $color = intval($link['Color'] ?? 0);
+
+                if ($color > 0) {
+                    $hex = sprintf('#%06x', $color);
+
+                    if (!array_key_exists($rowSource, $nodeColorMap)) {
+                        $nodeColorMap[$rowSource] = $hex;
+                    }
+
+                    if (!array_key_exists($rowTarget, $nodeColorMap)) {
+                        $nodeColorMap[$rowTarget] = $hex;
+                    }
                 }
             }
         }
@@ -258,6 +272,77 @@ class Sankey extends IPSModule
             'startTs'    => $staticMode ? $startTime : null,
             'endTs'      => $staticMode ? $endTime   : null,
         ];
+    }
+
+    // Liefert ['rows' => [...], 'nodeColors' => [...]]
+    // rows-Format: [source, target, value, unit]
+
+    private function GetValuesFromArchive(int $varID, int $startTime, int $endTime): array
+    {
+        $archiveID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0] ?? 0;
+
+        if ($archiveID === 0 || !AC_GetLoggingStatus($archiveID, $varID)) {
+            return [];
+        }
+
+        $isCounter = boolval(AC_GetAggregationType($archiveID, $varID));
+        $level = $this->GetAggregationLevel($startTime, $endTime);
+
+        $agg = AC_GetAggregatedValues($archiveID, $varID, $level, $startTime, $endTime, 0);
+
+        if (empty($agg)) {
+            return [];
+        }
+
+        if ($isCounter) {
+            $sum = 0.0;
+
+            foreach ($agg as $a) {
+                $sum += floatval($a['Avg']);
+            }
+
+            return [
+                ['value' => $sum, 'reverse' => false, 'split' => false]
+            ];
+        }
+
+        $posSum = 0.0;
+        $posCnt = 0;
+        $negSum = 0.0;
+        $negCnt = 0;
+
+        foreach ($agg as $a) {
+            $avg = floatval($a['Avg']);
+
+            if ($avg > 0) {
+                $posSum += $avg;
+                $posCnt++;
+            } elseif ($avg < 0) {
+                $negSum += abs($avg);
+                $negCnt++;
+            }
+        }
+
+        $hasBoth = $posCnt > 0 && $negCnt > 0;
+        $result = [];
+
+        if ($posCnt > 0) {
+            $result[] = [
+                'value'   => $posSum / $posCnt,
+                'reverse' => false,
+                'split'   => $hasBoth
+            ];
+        }
+
+        if ($negCnt > 0) {
+            $result[] = [
+                'value'   => $negSum / $negCnt,
+                'reverse' => true,
+                'split'   => $hasBoth
+            ];
+        }
+
+        return $result;
     }
 
     private function GenerateHTML(): string
