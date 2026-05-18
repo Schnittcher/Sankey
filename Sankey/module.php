@@ -17,6 +17,7 @@ class Sankey extends IPSModule
         $this->RegisterVariableInteger('EndDate',   'Enddatum',   '~UnixTimestamp', 11);
         $this->EnableAction('StartDate');
         $this->EnableAction('EndDate');
+        $this->EnableAction('ToggleMode');
 
         $this->SetVisualizationType(1);
     }
@@ -60,7 +61,7 @@ class Sankey extends IPSModule
             }
         }
 
-        $this->UpdateVisualizationValue($this->GetVisualizationTile());
+        $this->UpdateVisualizationValue(json_encode($this->CollectData(), JSON_UNESCAPED_UNICODE));
     }
 
     public function MessageSink($TimeStamp, $SenderID, $Message, $Data): void
@@ -75,6 +76,16 @@ class Sankey extends IPSModule
         if ($Ident === 'StartDate' || $Ident === 'EndDate') {
             SetValue($this->GetIDForIdent($Ident), $Value);
             $this->UpdateDiagram();
+            return;
+        }
+
+        if ($Ident === 'ToggleMode') {
+            $newMode = intval($Value) === 1;
+
+            IPS_SetProperty($this->InstanceID, 'StaticMode', $newMode);
+            IPS_ApplyChanges($this->InstanceID);
+
+            return;
         }
     }
 
@@ -431,9 +442,10 @@ class Sankey extends IPSModule
 <body>
 <div id="chart_div"></div>
 <div id="date_range">
-    <input type="date" id="inp_start" class="dp-input">
+    <button id="btn_mode" class="dp-input">Archiv</button>
+    <input type="datetime-local" id="inp_start" class="dp-input">
     <span class="dp-sep">→</span>
-    <input type="date" id="inp_end" class="dp-input">
+    <input type="datetime-local" id="inp_end" class="dp-input">
 </div>
 <script>{$sankeyJS}</script>
 <script>
@@ -445,27 +457,46 @@ class Sankey extends IPSModule
 
     function tsToInputVal(ts) {
         if (!ts) return '';
+
         var d = new Date(ts * 1000);
+
         return d.getFullYear() + '-' +
             String(d.getMonth() + 1).padStart(2, '0') + '-' +
-            String(d.getDate()).padStart(2, '0');
+            String(d.getDate()).padStart(2, '0') + 'T' +
+            String(d.getHours()).padStart(2, '0') + ':' +
+            String(d.getMinutes()).padStart(2, '0');
     }
 
     function dateToTs(val) {
         if (!val) return 0;
-        var p = val.split('-');
-        return Math.floor(new Date(+p[0], +p[1] - 1, +p[2]).getTime() / 1000);
+
+        var d = new Date(val);
+
+        return Math.floor(d.getTime() / 1000);
     }
 
     function updateDateRange() {
         var el = document.getElementById('date_range');
         if (!el) return;
+
+        var btn = document.getElementById('btn_mode');
+        if (btn) {
+            btn.textContent = staticMode ? 'Live' : 'Archiv';
+        }
+
+        el.style.display = 'flex';
+
+        document.getElementById('inp_start').style.display = staticMode ? 'inline-block' : 'none';
+        document.getElementById('inp_end').style.display   = staticMode ? 'inline-block' : 'none';
+
+        var sep = document.querySelector('.dp-sep');
+        if (sep) {
+            sep.style.display = staticMode ? 'inline-block' : 'none';
+        }
+
         if (staticMode) {
-            el.style.display = 'flex';
             document.getElementById('inp_start').value = tsToInputVal(startTs);
             document.getElementById('inp_end').value   = tsToInputVal(endTs);
-        } else {
-            el.style.display = 'none';
         }
     }
 
@@ -505,6 +536,11 @@ class Sankey extends IPSModule
         endTs = dateToTs(this.value);
         requestAction('EndDate', endTs);
     });
+
+    document.getElementById('btn_mode').addEventListener('click', function () {
+            var newMode = staticMode ? 0 : 1;
+            requestAction('ToggleMode', newMode);
+        });
 
     window.addEventListener('message', function(event) {
         handleMessage(event.data);
