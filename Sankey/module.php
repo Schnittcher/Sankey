@@ -50,14 +50,20 @@ class Sankey extends IPSModule
             }
         }
 
-        // Im Live-Modus Variablen überwachen
-        if (!$staticMode) {
-            $links = json_decode($this->ReadPropertyString('Links'), true) ?? [];
-            foreach ($links as $link) {
-                $varID = intval($link['VariableID'] ?? 0);
-                if ($varID > 0 && IPS_VariableExists($varID)) {
-                    $this->RegisterMessage($varID, VM_UPDATE);
-                }
+        // Im Archivmodus entscheidet MessageSink(), ob der gewählte Zeitraum aktualisiert werden muss.
+        $links = json_decode($this->ReadPropertyString('Links'), true) ?? [];
+
+        foreach ($links as $link) {
+            $varID = intval($link['VariableID'] ?? 0);
+
+            if ($varID > 0 && IPS_VariableExists($varID)) {
+                $this->RegisterMessage($varID, VM_UPDATE);
+            }
+
+            $infoVarID = intval($link['InfoVariableID'] ?? 0);
+
+            if ($infoVarID > 0 && IPS_VariableExists($infoVarID)) {
+                $this->RegisterMessage($infoVarID, VM_UPDATE);
             }
         }
 
@@ -66,7 +72,16 @@ class Sankey extends IPSModule
 
     public function MessageSink($TimeStamp, $SenderID, $Message, $Data): void
     {
-        if ($Message === VM_UPDATE) {
+        if ($Message !== VM_UPDATE) {
+            return;
+        }
+
+        if (!$this->ReadPropertyBoolean('StaticMode')) {
+            $this->UpdateDiagram();
+            return;
+        }
+
+        if ($this->IsCurrentTimeInsideSelectedRange()) {
             $this->UpdateDiagram();
         }
     }
@@ -100,6 +115,19 @@ class Sankey extends IPSModule
     }
 
     // --- private ---
+
+    private function IsCurrentTimeInsideSelectedRange(): bool
+    {
+        $startTime = (int) GetValue($this->GetIDForIdent('StartDate'));
+        $endTime   = (int) GetValue($this->GetIDForIdent('EndDate'));
+        $now       = time();
+
+        if ($startTime <= 0 || $endTime <= 0) {
+            return false;
+        }
+
+        return $startTime <= $now && $endTime >= $now;
+    }
 
     private function GetVariableUnit(int $varID): string
     {
@@ -501,7 +529,7 @@ class Sankey extends IPSModule
 
         var btn = document.getElementById('btn_mode');
         if (btn) {
-            btn.textContent = staticMode ? 'Live' : 'Archiv';
+            btn.textContent = staticMode ? 'Archiv' : 'Live';
         }
 
         el.style.display = 'flex';
