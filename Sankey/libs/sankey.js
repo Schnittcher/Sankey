@@ -286,7 +286,9 @@
                 fill:           o.labelColor,
                 'pointer-events': 'none'
             });
-            t.textContent = n.id;
+            t.textContent = n.id.endsWith('-')
+                ? n.id.slice(0, -1)
+                : n.id;
 
             if (o.showValues) {
                 var dispVal = Math.max(n.inV, n.outV);
@@ -310,8 +312,12 @@
                     }
                 });
 
+                var displayName = n.id.endsWith('-')
+                    ? n.id.slice(0, -1)
+                    : n.id;
+
                 t.textContent =
-                    n.id + '  ' +
+                    displayName + '  ' +
                     fmt(dispVal) +
                     (nodeUnit ? ' ' + nodeUnit : '') +
                     (nodeInfo ? ' (' + nodeInfo + ')' : '');
