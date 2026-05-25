@@ -553,8 +553,16 @@ class Sankey extends IPSModule
         }
 
         if (staticMode) {
-            document.getElementById('inp_start').value = tsToInputVal(startTs);
-            document.getElementById('inp_end').value   = tsToInputVal(endTs);
+            var inpStart = document.getElementById('inp_start');
+            var inpEnd   = document.getElementById('inp_end');
+
+            if (document.activeElement !== inpStart) {
+                inpStart.value = tsToInputVal(startTs);
+            }
+
+            if (document.activeElement !== inpEnd) {
+                inpEnd.value = tsToInputVal(endTs);
+            }
         }
     }
 
