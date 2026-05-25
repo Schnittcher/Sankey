@@ -15,7 +15,14 @@
     }
 
     function makeTooltip(container) {
+        var existing = container.querySelector('.sankey-tooltip');
+        if (existing) {
+            return existing;
+        }
+
         var tip = document.createElement('div');
+        tip.className = 'sankey-tooltip';
+
         tip.style.cssText = [
             'position:absolute',
             'display:none',
@@ -31,9 +38,10 @@
             'box-shadow:0 2px 8px rgba(0,0,0,0.25)',
             'z-index:999'
         ].join(';');
-        /* Container muss position:relative haben damit absolute klappt */
+
         var pos = window.getComputedStyle(container).position;
         if (pos === 'static') container.style.position = 'relative';
+
         container.appendChild(tip);
         return tip;
     }
@@ -175,11 +183,16 @@
         var tip = makeTooltip(container);
 
         /* Track mouse position relative to container */
-        var mouseX = 0, mouseY = 0;
+        var mouseX = container.__sankeyMouseX || 0;
+        var mouseY = container.__sankeyMouseY || 0;
+
         svg.addEventListener('mousemove', function (e) {
             var rect = container.getBoundingClientRect();
             mouseX = e.clientX - rect.left;
             mouseY = e.clientY - rect.top;
+
+            container.__sankeyMouseX = mouseX;
+            container.__sankeyMouseY = mouseY;
         });
 
         /* ── Links ───────────────────────────────────────────────────── */
@@ -307,9 +320,17 @@
             svg.appendChild(t);
         });
 
-        container.innerHTML = '';
-        container.appendChild(tip);
-        container.appendChild(svg);
+        var oldSvg = container.querySelector('svg');
+
+        if (oldSvg) {
+            oldSvg.replaceWith(svg);
+        } else {
+            container.appendChild(svg);
+        }
+
+        if (!container.contains(tip)) {
+            container.appendChild(tip);
+        }
     }
 
     global.drawSankey = drawSankey;
