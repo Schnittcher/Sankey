@@ -296,8 +296,18 @@ class Sankey extends IPSModule
                         $infoValue = abs(floatval(GetValue($infoVarID)));
                     }
 
-                    $infoUnit = $this->GetVariableUnit($infoVarID);
-                    $infoText = number_format($infoValue, 2, ',', "'") . ($infoUnit !== '' ? ' ' . $infoUnit : '');
+                    $infoVar = IPS_GetVariable($infoVarID);
+
+                    $profileName = $infoVar['VariableCustomProfile'] !== ''
+                        ? $infoVar['VariableCustomProfile']
+                        : $infoVar['VariableProfile'];
+
+                    if ($profileName !== '' && IPS_VariableProfileExists($profileName)) {
+                        $infoText = GetValueFormattedEx($infoVarID, $infoValue);
+                    } else {
+                        $infoUnit = $this->GetVariableUnit($infoVarID);
+                        $infoText = number_format($infoValue, 2, ',', "'") . ($infoUnit !== '' ? ' ' . $infoUnit : '');
+                    }
                 }
 
                 $rows[] = [
