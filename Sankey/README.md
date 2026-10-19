@@ -1,90 +1,71 @@
 # Sankey
-   Dieses Modul bietet die Möglichkeit ein Sankey Diagramm in Symcon darzustellen.
- 
-   ## Inhaltverzeichnis
+Dieses Modul stellt Flüsse (zum Beispiel Energieflüsse) als Sankey-Diagramm in der Kachel-Visualisierung dar. Die Instanz wird über "Instanz hinzufügen" unter dem Hersteller "Kai Schnittcher" angelegt. Das Diagramm läuft entweder live mit den aktuellen Variablenwerten oder zeigt aggregierte Werte eines Zeitraums aus dem Archiv.
+
+## Inhaltsverzeichnis
 - [Sankey](#sankey)
-  - [Inhaltverzeichnis](#inhaltverzeichnis)
-    - [1. Funktionsumfang](#1-funktionsumfang)
-    - [2. Vorraussetzungen](#2-vorraussetzungen)
-    - [3. Einrichten der Instanzen in IP-Symcon](#3-einrichten-der-instanzen-in-ip-symcon)
-    - [4. Statusvariablen](#4-statusvariablen)
-    - [5. PHP-Befehlsreferenz](#5-php-befehlsreferenz)
-  - [6. Spenden](#6-spenden)
-  - [7. Lizenz](#7-lizenz)
-   
-### 1. Funktionsumfang
+  - [Inhaltsverzeichnis](#inhaltsverzeichnis)
+  - [1. Konfiguration](#1-konfiguration)
+    - [Verbindungen](#verbindungen)
+    - [Sonderfälle](#sonderfälle)
+  - [2. Variablen](#2-variablen)
+  - [3. Funktionen](#3-funktionen)
+  - [4. Spenden](#4-spenden)
+  - [5. Lizenz](#5-lizenz)
 
-* Anlegen von Verbindungen
-* Anpassung des Diagramm Titels
-* Anpassung der Farben
-* Sobald eine Variable geändert wird, die sich im Diagramm befindet, wird das Diagramm aktualisiert
-### 2. Vorraussetzungen
+## 1. Konfiguration
 
-- IP-Symcon ab Version 8.0
+Feld | Beschreibung
+------------ | ----------------
+Label-Farbe (Nodes) | Farbe der Beschriftung im Diagramm. "Transparent" (Standard) verwendet die Textfarbe der Visualisierung und passt sich dem hellen und dunklen Design an.
+Werte an Nodes anzeigen | Zeigt die Werte zusätzlich an den Nodes an.
+Statisches Diagramm (Werte aus Archiv) | Aktiviert die Archiv-Ansicht. In der Kachel kann dann der Zeitraum gewählt werden. Zählervariablen verwenden die Summe der Intervallwerte, alle anderen Variablen den Durchschnitt der Intervallwerte (positive und negative Werte getrennt). Ein Umschalter in der Kachel wechselt zwischen Live und Archiv.
+Verbindungen | Hier wird das Diagramm konfiguriert.
 
-### 3. Einrichten der Instanzen in IP-Symcon
+### Verbindungen
 
- Unter 'Instanz hinzufügen' ist das 'Sankey'-Modul unter dem Hersteller 'Kai Schnittcher' aufgeführt.
+Feld | Beschreibung
+------------ | ----------------
+Quelle (Von) | Knoten, an dem der Fluss beginnt.
+Ziel (Nach) | Knoten, an dem der Fluss endet.
+Variable (Wert) | Variable, aus der der Wert des Flusses gelesen wird.
+Invertieren | Dreht die Flussrichtung um.
+< 0 ignorieren | Negative Werte werden nicht dargestellt (siehe Sonderfälle).
+Farbe (Quelle) | Farbe des Flusses beziehungsweise der Knoten.
+Info (optional) | Variable, deren Wert als Zusatzinfo am Fluss angezeigt wird.
 
-__Konfigurationsseite__:
+### Sonderfälle
 
-Name     | Beschreibung
--------- | ------------------
-Label Farbe | Hier kann die Farbe der Labels im Diagramm  eingestellt werden.
-Werte an Nodes anzeigen | Hier kann eingestellt werden, ob die Werte an den Nodes zusätzlich angezeigt werden.
-Statisches Diagramm | Hier kann eingestellt werden, ob es sich um ein statisches Diagramm handelt, das heißt in der Visu kann der Zeitraum angegeben werden.
-Verbindungen | Hier wird das Diagramm konfiguriert
+**Statisches Diagramm, Standard-Aggregation, "< 0 ignorieren" nicht gesetzt**
+Erzeuger und Verbraucher mit positiven und negativen Werten im Zeitraum stehen auf beiden Seiten des Diagramms.
 
-__Verbindungen__:
-Name     | Beschreibung
--------- | ------------------
-Quele (Von) | Hier wird die Quelle hinterlegt, wo der Fluss für die Variable anfängt.
-Ziel  (Nach) | Hier wird das Ziel hinterlegt, wo der Fluss für die Variable endet.
-Variable | Hier wird die Variable hinterlegt, welche für diesen Fluss genutzt werden soll.
-Invertieren | Diese Einstellung dreht das Vorzeichen der Variable um.
-<0 ignorieren | Diese Einstellung lässt keine negative Werte zu, dazu gibt es Sonderfälle, siehe unten.
-Farbe | Hier wird die Farbe für den Fluss angegeben
+Beispiel: EVU und Batterie stehen auf beiden Seiten. Der Speicher hat im Durchschnitt 120,96 Watt geliefert und wurde mit 128,29 Watt geladen. Der Versorger hat im Durchschnitt 72,36 Watt geliefert und 1262,39 Watt eingespeist.
 
-__Sonderfälle__:
+![Statisches Diagramm, Standard-Aggregation](imgs/statisches_diagramm_vorzeichen_sonderfall.png)
 
-**Statisches Diagramm, Standard Aggregation und < 0 ignorieren
-Wird die Funktion <0 ignorieren nicht gesetzt, werden Erzeuger / Verbraucher bei entsprechenden Variablenwerten auf beiden Seiten dargestellt.** \
+Ist "< 0 ignorieren" gesetzt, werden die negativen Anteile nicht dargestellt.
 
-Sobald hier die Funktion <0 ignorieren gesetzt wird, werden Erzeuger / Verbraucher ggf. auf beiden Seiten, dargestellt.
+**Live-Diagramm, "< 0 ignorieren" nicht gesetzt**
+Der Eintrag wechselt die Seite, sobald sich das Vorzeichen ändert. Liefert eine Batterie Strom, steht sie links, wird sie geladen, steht sie auf der anderen Seite.
 
-<ins>Beispiel:</ins>
-EVU und Batterie stehen auf beiden Seiten, dies bedeutet in diesem Fall nichts anders, als das in diesem Zeitraum im Durchschnitt
+## 2. Variablen
 
-Der Speicher 120,96 Watt geliefert hat und mit 128,29 Watt geladen wurden.
+Variable | Ident | Typ | Beschreibung
+------------ | ------------ | ------------ | ----------------
+Startdatum | `StartDate` | Ganzzahl (Unix-Zeitstempel) | Beginn des Zeitraums im statischen Modus. Nur im statischen Modus sichtbar und bedienbar.
+Enddatum | `EndDate` | Ganzzahl (Unix-Zeitstempel) | Ende des Zeitraums im statischen Modus. Nur im statischen Modus sichtbar und bedienbar.
 
-Der Versorger hat im Durchschnitt 72,36 Watt geliefert und es wurde im Durchschnitt 1262,39 Watt eingespeist.
+Die Variablen werden automatisch angelegt. Das Löschen kann zu Fehlfunktionen führen. Das Startdatum darf nicht nach dem Enddatum liegen.
 
+## 3. Funktionen
 
-![Statisches Diagramm, Standard Aggregation und < 0 ignorieren](imgs/statisches_diagramm_vorzeichen_sonderfall.png)
+`void SD_UpdateDiagram(integer $InstanzID);`
+Erstellt das Diagramm neu. Wird automatisch aufgerufen, wenn sich eine verwendete Variable ändert (im statischen Modus nur, wenn der aktuelle Zeitpunkt im gewählten Zeitraum liegt).
 
-**Dynamisches Diagramm, Standard Aggregation und < 0 ignorieren
-Wird <0 ignorieren nicht gewählt, wechselt der Eintrag automatisch die Seite, sobald sich hier das Vorzeichen ändert**
+## 4. Spenden
+Dieses Modul ist für die nicht kommerzielle Nutzung kostenlos, Schenkungen als Unterstützung für den Autor werden hier akzeptiert:
 
-<ins>Beispiel:</ins>
-Wenn eine Batterie Strom liefert, steht diese auf der linken Seite, sobald die Batterie geladen wird, landet sie auf der anderen Seite des Flusses.
+[![PayPal](https://img.shields.io/badge/PayPal-Spenden-00457C?logo=paypal&logoColor=white&style=for-the-badge)](https://www.paypal.com/donate?hosted_button_id=EK4JRP87XLSHW) [![Amazon Wunschzettel](https://img.shields.io/badge/Amazon-Wunschzettel-FF9900?logo=amazon&logoColor=white&style=for-the-badge)](https://www.amazon.de/hz/wishlist/ls/3JVWED9SZMDPK?ref_=wl_share)
 
-
-### 4. Statusvariablen
-
-Die Statusvariablen/Kategorien werden automatisch angelegt. Das Löschen einzelner kann zu Fehlfunktionen führen.
-
-
-### 5. PHP-Befehlsreferenz
-
-**SD_UpdateDiagram(integer $InstanceID)** \
-Mit dieser Funktion kann das Diagramm neu erstellt werden.
-
-## 6. Spenden
-
-Dieses Modul ist für die nicht kommerzielle Nutzung kostenlos, Schenkungen als Unterstützung für den Autor werden hier akzeptiert:    
-
-<a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=EK4JRP87XLSHW" target="_blank"><img src="https://www.paypalobjects.com/de_DE/DE/i/btn/btn_donate_LG.gif" border="0" /></a> <a href="https://www.amazon.de/hz/wishlist/ls/3JVWED9SZMDPK?ref_=wl_share" target="_blank">Amazon Wunschzettel</a>
-
-## 7. Lizenz
+## 5. Lizenz
 
 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)

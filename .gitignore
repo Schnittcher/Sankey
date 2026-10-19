@@ -1,5 +1,9 @@
 .DS_Store
 .idea/
+.vscode/
 libs/composer.*
 libs/phpunit.*
-.vscode/*
+vendor/
+docs/FORUM_POST.md
+docs/FORUM_CHANGELOG.md
+docs/adr/

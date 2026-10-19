@@ -2,45 +2,47 @@
 
 declare(strict_types=1);
 
-class Sankey extends IPSModule
+class Sankey extends IPSModuleStrict
 {
+    private const ARCHIVE_CONTROL_GUID = '{43192F0B-135B-4CE7-A0A7-1475603F3060}';
+    private const JSON_FLAGS = JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
+
     public function Create(): void
     {
         parent::Create();
 
-        $this->RegisterPropertyInteger('ColorLabel', 0x1e293b);
+        // -1 = Farbe der Visualisierung verwenden
+        $this->RegisterPropertyInteger('ColorLabel', -1);
         $this->RegisterPropertyBoolean('ShowValues', false);
         $this->RegisterPropertyBoolean('StaticMode', false);
         $this->RegisterPropertyString('Links', '[]');
 
-        $this->RegisterVariableInteger('StartDate', 'Startdatum', '~UnixTimestamp', 10);
-        $this->RegisterVariableInteger('EndDate',   'Enddatum',   '~UnixTimestamp', 11);
+        $this->RegisterVariableInteger('StartDate', $this->Translate('Start date'), '~UnixTimestamp', 10);
+        $this->RegisterVariableInteger('EndDate', $this->Translate('End date'), '~UnixTimestamp', 11);
         $this->EnableAction('StartDate');
         $this->EnableAction('EndDate');
-        $this->EnableAction('ToggleMode');
 
-        $this->SetVisualizationType(1);
+        $this->SetVisualizationType(defined('INSTANCE_VISUALIZATION_TYPE_HTML_FULLSCREEN') ? INSTANCE_VISUALIZATION_TYPE_HTML_FULLSCREEN : 1);
     }
 
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
 
-        $this->SetVisualizationType(1);
-
         $staticMode = $this->ReadPropertyBoolean('StaticMode');
 
         // Datumsvariablen nur im statischen Modus sichtbar und bedienbar
-        IPS_SetHidden($this->GetIDForIdent('StartDate'),   !$staticMode);
-        IPS_SetHidden($this->GetIDForIdent('EndDate'),     !$staticMode);
-        IPS_SetDisabled($this->GetIDForIdent('StartDate'), !$staticMode);
-        IPS_SetDisabled($this->GetIDForIdent('EndDate'),   !$staticMode);
+        foreach (['StartDate', 'EndDate'] as $ident) {
+            $id = $this->GetIDForIdent($ident);
+            IPS_SetHidden($id, !$staticMode);
+            IPS_SetDisabled($id, !$staticMode);
+        }
 
-        // Standardzeitraum setzen wenn noch kein Wert vorhanden
-        if ($staticMode && GetValue($this->GetIDForIdent('StartDate')) === 0) {
+        // Standardzeitraum setzen, wenn noch kein Wert vorhanden ist
+        if ($staticMode && $this->GetValue('StartDate') === 0) {
             $now = time();
-            SetValue($this->GetIDForIdent('StartDate'), mktime(0, 0, 0, (int) date('n', $now), 1, (int) date('Y', $now)));
-            SetValue($this->GetIDForIdent('EndDate'), $now);
+            $this->SetValue('StartDate', mktime(0, 0, 0, (int) date('n', $now), 1, (int) date('Y', $now)));
+            $this->SetValue('EndDate', $now);
         }
 
         // Alle bisherigen Nachrichten abmelden
@@ -51,76 +53,93 @@ class Sankey extends IPSModule
         }
 
         // Im Archivmodus entscheidet MessageSink(), ob der gewählte Zeitraum aktualisiert werden muss.
-        $links = json_decode($this->ReadPropertyString('Links'), true) ?? [];
+        foreach ($this->GetLinks() as $link) {
+            foreach (['VariableID', 'InfoVariableID'] as $key) {
+                $varID = (int) ($link[$key] ?? 0);
 
-        foreach ($links as $link) {
-            $varID = intval($link['VariableID'] ?? 0);
-
-            if ($varID > 0 && IPS_VariableExists($varID)) {
-                $this->RegisterMessage($varID, VM_UPDATE);
-            }
-
-            $infoVarID = intval($link['InfoVariableID'] ?? 0);
-
-            if ($infoVarID > 0 && IPS_VariableExists($infoVarID)) {
-                $this->RegisterMessage($infoVarID, VM_UPDATE);
+                if ($varID > 0 && IPS_VariableExists($varID)) {
+                    $this->RegisterMessage($varID, VM_UPDATE);
+                }
             }
         }
 
-        $this->UpdateVisualizationValue(json_encode($this->CollectData(), JSON_UNESCAPED_UNICODE));
+        $this->UpdateDiagram();
     }
 
-    public function MessageSink($TimeStamp, $SenderID, $Message, $Data): void
+    public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
         if ($Message !== VM_UPDATE) {
             return;
         }
 
-        if (!$this->ReadPropertyBoolean('StaticMode')) {
-            $this->UpdateDiagram();
-            return;
-        }
-
-        if ($this->IsCurrentTimeInsideSelectedRange()) {
+        if (!$this->ReadPropertyBoolean('StaticMode') || $this->IsCurrentTimeInsideSelectedRange()) {
             $this->UpdateDiagram();
         }
     }
 
-    public function RequestAction($Ident, $Value): void
+    public function RequestAction(string $Ident, mixed $Value): void
     {
-        if ($Ident === 'StartDate' || $Ident === 'EndDate') {
-            SetValue($this->GetIDForIdent($Ident), $Value);
-            $this->UpdateDiagram();
-            return;
-        }
+        switch ($Ident) {
+            case 'StartDate':
+            case 'EndDate':
+                $this->SetDateRangeValue($Ident, (int) $Value);
+                $this->UpdateDiagram();
+                break;
 
-        if ($Ident === 'ToggleMode') {
-            $newMode = intval($Value) === 1;
+            case 'ToggleMode':
+                IPS_SetProperty($this->InstanceID, 'StaticMode', (int) $Value === 1);
+                IPS_ApplyChanges($this->InstanceID);
+                break;
 
-            IPS_SetProperty($this->InstanceID, 'StaticMode', $newMode);
-            IPS_ApplyChanges($this->InstanceID);
-
-            return;
+            default:
+                $this->SendDebug(__FUNCTION__, 'Unbekannter Ident: ' . $Ident, 0);
+                break;
         }
     }
 
     public function UpdateDiagram(): void
     {
-        $this->UpdateVisualizationValue(json_encode($this->CollectData(), JSON_UNESCAPED_UNICODE));
+        $this->UpdateVisualizationValue(json_encode($this->CollectData(), self::JSON_FLAGS));
     }
 
-    public function GetVisualizationTile()
+    public function GetVisualizationTile(): string
     {
-        return $this->GenerateHTML();
+        $html = file_get_contents(__DIR__ . '/module.html');
+
+        // Startdaten an die Kachel übergeben
+        return $html . '<script>handleMessage(' . json_encode(json_encode($this->CollectData(), self::JSON_FLAGS), self::JSON_FLAGS) . ');</script>';
     }
 
-    // --- private ---
+    private function SetDateRangeValue(string $ident, int $value): void
+    {
+        if ($value <= 0) {
+            $this->SendDebug(__FUNCTION__, 'Ungültiger Zeitstempel für ' . $ident, 0);
+            return;
+        }
+
+        $start = $ident === 'StartDate' ? $value : $this->GetValue('StartDate');
+        $end = $ident === 'EndDate' ? $value : $this->GetValue('EndDate');
+
+        if ($start > $end) {
+            $this->SendDebug(__FUNCTION__, 'Startdatum liegt nach dem Enddatum, Wert wird verworfen', 0);
+            return;
+        }
+
+        $this->SetValue($ident, $value);
+    }
+
+    private function GetLinks(): array
+    {
+        $links = json_decode($this->ReadPropertyString('Links'), true);
+
+        return is_array($links) ? $links : [];
+    }
 
     private function IsCurrentTimeInsideSelectedRange(): bool
     {
-        $startTime = (int) GetValue($this->GetIDForIdent('StartDate'));
-        $endTime   = (int) GetValue($this->GetIDForIdent('EndDate'));
-        $now       = time();
+        $startTime = $this->GetValue('StartDate');
+        $endTime = $this->GetValue('EndDate');
+        $now = time();
 
         if ($startTime <= 0 || $endTime <= 0) {
             return false;
@@ -131,226 +150,67 @@ class Sankey extends IPSModule
 
     private function GetVariableUnit(int $varID): string
     {
-        // Neue Darstellungen (Symcon 6.x+) haben Vorrang
-        if (function_exists('IPS_GetVariablePresentation')) {
-            $pres = IPS_GetVariablePresentation($varID);
-            if (!empty($pres['SUFFIX'])) {
-                return $pres['SUFFIX'];
-            }
+        // Neue Darstellungen haben Vorrang
+        $presentation = IPS_GetVariablePresentation($varID);
+
+        if (is_array($presentation) && !empty($presentation['SUFFIX'])) {
+            return (string) $presentation['SUFFIX'];
         }
 
         // Klassisches Profil-System
-        $varInfo     = IPS_GetVariable($varID);
+        $profileName = $this->GetProfileName($varID);
+
+        if ($profileName === '') {
+            return '';
+        }
+
+        return IPS_GetVariableProfile($profileName)['Suffix'];
+    }
+
+    private function GetProfileName(int $varID): string
+    {
+        $varInfo = IPS_GetVariable($varID);
         $profileName = $varInfo['VariableCustomProfile'] !== ''
             ? $varInfo['VariableCustomProfile']
             : $varInfo['VariableProfile'];
 
-        if ($profileName === '' || !IPS_VariableProfileExists($profileName)) {
-            return '';
-        }
-        return IPS_GetVariableProfile($profileName)['Suffix'];
+        return ($profileName !== '' && IPS_VariableProfileExists($profileName)) ? $profileName : '';
     }
-
 
     private function GetAggregationLevel(int $startTime, int $endTime): int
     {
         $diff = $endTime - $startTime;
 
-        if ($diff <= 2 * 86400)         return 0; // bis 2 Tage   → stündlich
-        if ($diff <= 28 * 86400)        return 1; // bis 4 Wochen → täglich
-        if ($diff <= 180 * 86400)       return 2; // bis 6 Monate → wöchentlich
-        if ($diff <= 3 * 365 * 86400)   return 3; // bis 3 Jahre  → monatlich
-        return 4;                                  // über 3 Jahre → jährlich
+        if ($diff <= 2 * 86400) {
+            return 0; // bis 2 Tage → stündlich
+        }
+
+        if ($diff <= 28 * 86400) {
+            return 1; // bis 4 Wochen → täglich
+        }
+
+        if ($diff <= 180 * 86400) {
+            return 2; // bis 6 Monate → wöchentlich
+        }
+
+        if ($diff <= 3 * 365 * 86400) {
+            return 3; // bis 3 Jahre → monatlich
+        }
+
+        return 4; // über 3 Jahre → jährlich
     }
 
-    private function GetValueFromArchive(int $varID, int $startTime, int $endTime): float
+    private function GetArchiveID(): int
     {
-        $archiveID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0] ?? 0;
-
-        if ($archiveID === 0) {
-            return 0.0;
-        }
-
-        if (!AC_GetLoggingStatus($archiveID, $varID)) {
-            return 0.0;
-        }
-
-        $isCounter = boolval(AC_GetAggregationType($archiveID, $varID));
-
-        $level = $this->GetAggregationLevel($startTime, $endTime);
-
-        $agg = AC_GetAggregatedValues(
-            $archiveID,
-            $varID,
-            $level,
-            $startTime,
-            $endTime,
-            0
-        );
-
-        if (empty($agg)) {
-
-            $name = IPS_GetName($varID);
-
-            $this->LogMessage(
-                "Sankey: Keine Archivdaten für Variable \"$name\" ($varID) im Zeitraum "
-                . date('d.m.Y', $startTime) . ' – ' . date('d.m.Y', $endTime) . '.',
-                KL_WARNING
-            );
-
-            return 0.0;
-        }
-
-        $sum = 0.0;
-
-        foreach ($agg as $a) {
-            $sum += floatval($a['Avg']);
-        }
-
-        // Zähler:
-        // Summe aller Intervallwerte
-        if ($isCounter) {
-            return $sum;
-        }
-
-        // Nicht-Zähler:
-        // normaler Durchschnitt MIT Vorzeichen
-        return $sum / count($agg);
+        return IPS_GetInstanceListByModuleID(self::ARCHIVE_CONTROL_GUID)[0] ?? 0;
     }
 
-    private function CollectData(): array
+    /**
+     * Liefert eine Liste aus ['value' => float, 'reverse' => bool, 'split' => bool].
+     */
+    private function GetValuesFromArchive(int $archiveID, int $varID, int $startTime, int $endTime): array
     {
-        $links        = json_decode($this->ReadPropertyString('Links'), true) ?? [];
-        $staticMode   = $this->ReadPropertyBoolean('StaticMode');
-
-        $rows         = [];
-        $nodeColorMap = [];
-
-        $startTime = $staticMode ? (int) GetValue($this->GetIDForIdent('StartDate')) : 0;
-        $endTime   = $staticMode ? (int) GetValue($this->GetIDForIdent('EndDate'))   : 0;
-
-        foreach ($links as $link) {
-            $source = trim($link['Source'] ?? '');
-            $target = trim($link['Target'] ?? '');
-            $varID  = intval($link['VariableID'] ?? 0);
-            $infoVarID = intval($link['InfoVariableID'] ?? 0);
-
-            if ($source === '' || $target === '' || $varID <= 0 || !IPS_VariableExists($varID)) {
-                continue;
-            }
-
-            if ($staticMode) {
-                $values = $this->GetValuesFromArchive($varID, $startTime, $endTime);
-            } else {
-                $v = floatval(GetValue($varID));
-                $values = [
-                    [
-                        'value'   => abs($v),
-                        'reverse' => $v < 0,
-                        'split'   => false
-                    ]
-                ];
-            }
-
-            foreach ($values as $entry) {
-                $value   = floatval($entry['value']);
-                $reverse = boolval($entry['reverse']);
-                $split   = boolval($entry['split']);
-
-                $invert         = boolval($link['Invert'] ?? false);
-                $ignoreNegative = boolval($link['IgnoreNegative'] ?? false);
-
-                if ($invert) {
-                    $reverse = !$reverse;
-                }
-
-                if ($value <= 0) {
-                    continue;
-                }
-
-                if ($reverse) {
-                    if ($ignoreNegative) {
-                        continue;
-                    }
-
-                    $rowSource = $target;
-                    $rowTarget = $split ? $source . '-' : $source;
-                } else {
-                    $rowSource = $source;
-                    $rowTarget = $target;
-                }
-
-                $unit = $this->GetVariableUnit($varID);
-
-                $infoText = '';
-
-                if ($infoVarID > 0 && IPS_VariableExists($infoVarID)) {
-                    if ($staticMode) {
-                        $infoValues = $this->GetValuesFromArchive($infoVarID, $startTime, $endTime);
-                        $infoValue = 0.0;
-
-                        foreach ($infoValues as $infoEntry) {
-                            $infoValue += floatval($infoEntry['value']);
-                        }
-                    } else {
-                        $infoValue = abs(floatval(GetValue($infoVarID)));
-                    }
-
-                    $infoVar = IPS_GetVariable($infoVarID);
-
-                    $profileName = $infoVar['VariableCustomProfile'] !== ''
-                        ? $infoVar['VariableCustomProfile']
-                        : $infoVar['VariableProfile'];
-
-                    if ($profileName !== '' && IPS_VariableProfileExists($profileName)) {
-                        $infoText = GetValueFormattedEx($infoVarID, $infoValue);
-                    } else {
-                        $infoUnit = $this->GetVariableUnit($infoVarID);
-                        $infoText = number_format($infoValue, 2, ',', "'") . ($infoUnit !== '' ? ' ' . $infoUnit : '');
-                    }
-                }
-
-                $rows[] = [
-                    htmlspecialchars($rowSource, ENT_QUOTES, 'UTF-8'),
-                    htmlspecialchars($rowTarget, ENT_QUOTES, 'UTF-8'),
-                    $value,
-                    $unit,
-                    $infoText,
-                ];
-
-                $color = intval($link['Color'] ?? 0);
-
-                if ($color > 0) {
-                    $hex = sprintf('#%06x', $color);
-
-                    if (!array_key_exists($rowSource, $nodeColorMap)) {
-                        $nodeColorMap[$rowSource] = $hex;
-                    }
-
-                    if (!array_key_exists($rowTarget, $nodeColorMap)) {
-                        $nodeColorMap[$rowTarget] = $hex;
-                    }
-                }
-            }
-        }
-
-        return [
-            'rows'       => $rows,
-            'nodeColors' => $nodeColorMap,
-            'staticMode' => $staticMode,
-            'startTs'    => $staticMode ? $startTime : null,
-            'endTs'      => $staticMode ? $endTime   : null,
-        ];
-    }
-
-    // Liefert ['rows' => [...], 'nodeColors' => [...]]
-    // rows-Format: [source, target, value, unit]
-
-    private function GetValuesFromArchive(int $varID, int $startTime, int $endTime): array
-    {
-        $archiveID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0] ?? 0;
-
-        if ($archiveID === 0 || !AC_GetLoggingStatus($archiveID, $varID)) {
+        if ($archiveID === 0 || $startTime <= 0 || $endTime <= $startTime || !AC_GetLoggingStatus($archiveID, $varID)) {
             return [];
         }
 
@@ -360,6 +220,11 @@ class Sankey extends IPSModule
         $agg = AC_GetAggregatedValues($archiveID, $varID, $level, $startTime, $endTime, 0);
 
         if (empty($agg)) {
+            $this->SendDebug(
+                __FUNCTION__,
+                sprintf('Keine Archivdaten für Variable "%s" (%d) im Zeitraum %s - %s', IPS_GetName($varID), $varID, date('d.m.Y', $startTime), date('d.m.Y', $endTime)),
+                0
+            );
             return [];
         }
 
@@ -396,245 +261,133 @@ class Sankey extends IPSModule
         $result = [];
 
         if ($posCnt > 0) {
-            $result[] = [
-                'value'   => $posSum / $posCnt,
-                'reverse' => false,
-                'split'   => $hasBoth
-            ];
+            $result[] = ['value' => $posSum / $posCnt, 'reverse' => false, 'split' => $hasBoth];
         }
 
         if ($negCnt > 0) {
-            $result[] = [
-                'value'   => $negSum / $negCnt,
-                'reverse' => true,
-                'split'   => $hasBoth
-            ];
+            $result[] = ['value' => $negSum / $negCnt, 'reverse' => true, 'split' => $hasBoth];
         }
 
         return $result;
     }
 
-    private function GenerateHTML(): string
+    private function GetInfoText(int $archiveID, int $infoVarID, bool $staticMode, int $startTime, int $endTime): string
     {
-        $colorLabel = sprintf('#%06x', $this->ReadPropertyInteger('ColorLabel'));
-        $showValues = $this->ReadPropertyBoolean('ShowValues') ? 'true' : 'false';
-        $data       = $this->CollectData();
-
-        return $this->GenerateLocalHTML($colorLabel, $showValues, $data);
-    }
-
-    private function GenerateLocalHTML(string $colorLabel, string $showValues, array $data): string
-    {
-        $jsRows   = json_encode($data['rows'], JSON_UNESCAPED_UNICODE);
-        $jsColors = json_encode($data['nodeColors'], JSON_UNESCAPED_UNICODE);
-        $jsStatic = ($data['staticMode'] ?? false) ? 'true' : 'false';
-        $jsStartTs = json_encode($data['startTs'] ?? null);
-        $jsEndTs   = json_encode($data['endTs'] ?? null);
-        $sankeyJS = file_get_contents(__DIR__ . '/libs/sankey.js');
-
-        return <<<HTML
-<!DOCTYPE html>
-<html lang="de">
-<head>
-<meta charset="UTF-8">
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:transparent; font-family:'Segoe UI',Arial,sans-serif; padding:12px; }
-  html, body {
-    width:100%;
-    height:100%;
-    margin:0;
-    padding:0;
-    overflow:hidden;
-    background:transparent;
-    font-family:'Segoe UI',Arial,sans-serif;
-    }
-
-    body {
-    display:flex;
-    flex-direction:column;
-    }
-
-    #chart_div {
-        flex:1 1 auto;
-        width:100%;
-        min-height:120px;
-        padding-bottom:18px;
-        opacity:1;
-        transition:opacity .25s ease;
-    }
-
-    #date_range {
-        display:none;
-        flex-shrink:0;
-        align-items:center;
-        justify-content:center;
-        gap:8px;
-        padding:5px 8px 3px;
-    }
-
-    .dp-input {
-        background:rgba(255,255,255,0.07);
-        border:1px solid rgba(255,255,255,0.13);
-        border-radius:6px;
-        padding:4px 8px;
-        font-size:12px;
-        font-family:'Segoe UI',Arial,sans-serif;
-        color:#94a3b8;
-        cursor:pointer;
-        outline:none;
-        color-scheme:dark;
-    }
-
-    .dp-input:hover {
-        background:rgba(255,255,255,0.13);
-        border-color:rgba(255,255,255,0.25);
-    }
-
-    .dp-sep {
-        font-size:12px;
-        color:#475569;
-    }
-</style>
-</head>
-<body>
-<div id="chart_div"></div>
-<div id="date_range">
-    <button id="btn_mode" class="dp-input">Archiv</button>
-    <input type="datetime-local" id="inp_start" class="dp-input">
-    <span class="dp-sep">→</span>
-    <input type="datetime-local" id="inp_end" class="dp-input">
-</div>
-<script>{$sankeyJS}</script>
-<script>
-    var rows       = {$jsRows};
-    var nodeColors = {$jsColors};
-    var staticMode = {$jsStatic};
-    var startTs    = {$jsStartTs};
-    var endTs      = {$jsEndTs};
-
-    function tsToInputVal(ts) {
-        if (!ts) return '';
-
-        var d = new Date(ts * 1000);
-
-        return d.getFullYear() + '-' +
-            String(d.getMonth() + 1).padStart(2, '0') + '-' +
-            String(d.getDate()).padStart(2, '0') + 'T' +
-            String(d.getHours()).padStart(2, '0') + ':' +
-            String(d.getMinutes()).padStart(2, '0');
-    }
-
-    function dateToTs(val) {
-        if (!val) return 0;
-
-        var d = new Date(val);
-
-        return Math.floor(d.getTime() / 1000);
-    }
-
-    function updateDateRange() {
-        var el = document.getElementById('date_range');
-        if (!el) return;
-
-        var btn = document.getElementById('btn_mode');
-        if (btn) {
-            btn.textContent = staticMode ? 'Archiv' : 'Live';
+        if ($infoVarID <= 0 || !IPS_VariableExists($infoVarID)) {
+            return '';
         }
 
-        el.style.display = 'flex';
+        if ($staticMode) {
+            $infoValue = 0.0;
 
-        document.getElementById('inp_start').style.display = staticMode ? 'inline-block' : 'none';
-        document.getElementById('inp_end').style.display   = staticMode ? 'inline-block' : 'none';
-
-        var sep = document.querySelector('.dp-sep');
-        if (sep) {
-            sep.style.display = staticMode ? 'inline-block' : 'none';
+            foreach ($this->GetValuesFromArchive($archiveID, $infoVarID, $startTime, $endTime) as $entry) {
+                $infoValue += floatval($entry['value']);
+            }
+        } else {
+            $infoValue = abs(floatval(GetValue($infoVarID)));
         }
 
-        if (staticMode) {
-            var inpStart = document.getElementById('inp_start');
-            var inpEnd   = document.getElementById('inp_end');
+        if ($this->GetProfileName($infoVarID) !== '') {
+            return GetValueFormattedEx($infoVarID, $infoValue);
+        }
 
-            if (document.activeElement !== inpStart) {
-                inpStart.value = tsToInputVal(startTs);
+        $infoUnit = $this->GetVariableUnit($infoVarID);
+
+        return number_format($infoValue, 2, ',', "'") . ($infoUnit !== '' ? ' ' . $infoUnit : '');
+    }
+
+    /**
+     * Liefert die Daten für die Kachel. rows-Format: [source, target, value, unit, info].
+     */
+    private function CollectData(): array
+    {
+        $staticMode = $this->ReadPropertyBoolean('StaticMode');
+        $colorLabel = $this->ReadPropertyInteger('ColorLabel');
+
+        $rows = [];
+        $nodeColorMap = [];
+
+        $startTime = $staticMode ? $this->GetValue('StartDate') : 0;
+        $endTime = $staticMode ? $this->GetValue('EndDate') : 0;
+        $archiveID = $staticMode ? $this->GetArchiveID() : 0;
+
+        foreach ($this->GetLinks() as $link) {
+            $source = trim($link['Source'] ?? '');
+            $target = trim($link['Target'] ?? '');
+            $varID = (int) ($link['VariableID'] ?? 0);
+
+            if ($source === '' || $target === '' || $varID <= 0 || !IPS_VariableExists($varID)) {
+                continue;
             }
 
-            if (document.activeElement !== inpEnd) {
-                inpEnd.value = tsToInputVal(endTs);
+            if ($staticMode) {
+                $values = $this->GetValuesFromArchive($archiveID, $varID, $startTime, $endTime);
+            } else {
+                $v = floatval(GetValue($varID));
+                $values = [
+                    ['value' => abs($v), 'reverse' => $v < 0, 'split' => false]
+                ];
+            }
+
+            $invert = boolval($link['Invert'] ?? false);
+            $ignoreNegative = boolval($link['IgnoreNegative'] ?? false);
+            $color = (int) ($link['Color'] ?? 0);
+            $unit = null;
+            $infoText = null;
+
+            foreach ($values as $entry) {
+                $value = floatval($entry['value']);
+                $reverse = boolval($entry['reverse']);
+                $split = boolval($entry['split']);
+
+                if ($invert) {
+                    $reverse = !$reverse;
+                }
+
+                if ($value <= 0) {
+                    continue;
+                }
+
+                if ($reverse) {
+                    if ($ignoreNegative) {
+                        continue;
+                    }
+
+                    $rowSource = $target;
+                    $rowTarget = $split ? $source . '-' : $source;
+                } else {
+                    $rowSource = $source;
+                    $rowTarget = $target;
+                }
+
+                $unit ??= $this->GetVariableUnit($varID);
+                $infoText ??= $this->GetInfoText($archiveID, (int) ($link['InfoVariableID'] ?? 0), $staticMode, $startTime, $endTime);
+
+                $rows[] = [$rowSource, $rowTarget, $value, $unit, $infoText];
+
+                if ($color > 0) {
+                    $hex = sprintf('#%06x', $color);
+                    $nodeColorMap[$rowSource] ??= $hex;
+                    $nodeColorMap[$rowTarget] ??= $hex;
+                }
             }
         }
-    }
 
-    function render() {
-        var chart = document.getElementById('chart_div');
-        chart.innerHTML = '';
-
-        drawSankey('chart_div', rows, {
-            nodeColors:  nodeColors,
-            linkOpacity: 0.45,
-            labelColor:  '{$colorLabel}',
-            showValues:  {$showValues},
-            staticMode:  staticMode
-        });
-
-        updateDateRange();
-    }
-
-    function handleMessage(message) {
-        var data = typeof message === 'string' ? JSON.parse(message) : message;
-
-        rows       = data.rows       || [];
-        nodeColors = data.nodeColors || {};
-        if (data.staticMode !== undefined) staticMode = data.staticMode;
-        if (data.startTs    !== undefined) startTs    = data.startTs;
-        if (data.endTs      !== undefined) endTs      = data.endTs;
-
-        render();
-    }
-
-    document.getElementById('inp_start').addEventListener('change', function () {
-        startTs = dateToTs(this.value);
-        requestAction('StartDate', startTs);
-    });
-
-    document.getElementById('inp_end').addEventListener('change', function () {
-        endTs = dateToTs(this.value);
-        requestAction('EndDate', endTs);
-    });
-
-    document.getElementById('btn_mode').addEventListener('click', function () {
-            var newMode = staticMode ? 0 : 1;
-            requestAction('ToggleMode', newMode);
-        });
-
-    window.addEventListener('message', function(event) {
-        handleMessage(event.data);
-    });
-
-    render();
-
-    var resizeTimer;
-
-    if (window.ResizeObserver) {
-        var observer = new ResizeObserver(function() {
-            clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(render, 150);
-        });
-
-        observer.observe(document.body);
-
-    } else {
-
-        window.addEventListener('resize', function() {
-            clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(render, 150);
-        });
-
-    }
-</script>
-</body>
-</html>
-HTML;
+        return [
+            'rows'       => $rows,
+            'nodeColors' => (object) $nodeColorMap,
+            'staticMode' => $staticMode,
+            'startTs'    => $staticMode ? $startTime : null,
+            'endTs'      => $staticMode ? $endTime : null,
+            'labelColor' => $colorLabel >= 0 ? sprintf('#%06x', $colorLabel) : '',
+            'showValues' => $this->ReadPropertyBoolean('ShowValues'),
+            'texts'      => [
+                'archive'  => $this->Translate('Archive'),
+                'live'     => $this->Translate('Live'),
+                'noData'   => $this->Translate('No data - please configure variables and make sure their values are > 0.'),
+                'incoming' => $this->Translate('Incoming'),
+                'outgoing' => $this->Translate('Outgoing'),
+            ],
+        ];
     }
 }

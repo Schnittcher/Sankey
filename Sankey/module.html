@@ -1,3 +1,59 @@
+<style>
+    #tile {
+        display: flex;
+        flex-direction: column;
+        font: inherit;
+        font-size: inherit;
+        color: var(--content-color);
+        overflow: hidden;
+    }
+
+    #chart_div {
+        flex: 1 1 auto;
+        min-height: 8em;
+        padding-bottom: 1.2em;
+        transition: opacity .25s ease;
+    }
+
+    #date_range {
+        display: none;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6em;
+        padding: 0.4em 0.6em 0.2em;
+    }
+
+    .dp-input {
+        font: inherit;
+        color: inherit;
+        background: color-mix(in srgb, var(--content-color) 8%, transparent);
+        border: 1px solid color-mix(in srgb, var(--content-color) 20%, transparent);
+        border-radius: 0.5em;
+        padding: 0.3em 0.6em;
+        cursor: pointer;
+        outline: none;
+    }
+
+    .dp-input:hover {
+        background: color-mix(in srgb, var(--content-color) 15%, transparent);
+        border-color: var(--accent-color);
+    }
+
+    .dp-sep {
+        opacity: 0.6;
+    }
+</style>
+<div id="tile">
+    <div id="chart_div"></div>
+    <div id="date_range">
+        <button id="btn_mode" class="dp-input" type="button"></button>
+        <input type="datetime-local" id="inp_start" class="dp-input">
+        <span class="dp-sep">&rarr;</span>
+        <input type="datetime-local" id="inp_end" class="dp-input">
+    </div>
+</div>
+<script>
 /* Minimal Sankey renderer – pure SVG, no external dependencies */
 (function (global) {
     'use strict';
@@ -11,7 +67,13 @@
     }
 
     function fmt(v) {
-        return Number(v).toLocaleString('de-DE', { maximumFractionDigits: 2 });
+        return Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+
+    function esc(v) {
+        return String(v).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
     }
 
     function makeTooltip(container) {
@@ -26,16 +88,17 @@
         tip.style.cssText = [
             'position:absolute',
             'display:none',
-            'background:rgba(15,23,42,0.88)',
-            'color:#f1f5f9',
-            'font-family:Segoe UI,Arial,sans-serif',
-            'font-size:12px',
+            'background:var(--card-color, Canvas)',
+            'color:var(--content-color, CanvasText)',
+            'border:1px solid color-mix(in srgb, var(--content-color, CanvasText) 25%, transparent)',
+            'font:inherit',
+            'font-size:0.85em',
             'line-height:1.5',
-            'padding:6px 10px',
-            'border-radius:6px',
+            'padding:0.4em 0.7em',
+            'border-radius:0.4em',
             'pointer-events:none',
             'white-space:nowrap',
-            'box-shadow:0 2px 8px rgba(0,0,0,0.25)',
+            'box-shadow:0 0.15em 0.6em rgba(0,0,0,0.25)',
             'z-index:999'
         ].join(';');
 
@@ -74,8 +137,11 @@
         var o = Object.assign({
             nodeWidth:   18,
             nodePadding: 10,
-            fontSize:    13,
-            labelColor:  '#1e293b',
+            fontSize:    parseFloat(window.getComputedStyle(container).fontSize) || 13,
+            labelColor:  '',
+            noDataText:  'No data',
+            incomingText: 'Incoming',
+            outgoingText: 'Outgoing',
             linkOpacity: 0.45,
             showValues:  false,
             staticMode:  false,
@@ -88,7 +154,11 @@
         var H = container.offsetHeight || 400;
 
         if (!rows || !rows.length) {
-            container.innerHTML = '<p style="color:#64748b;text-align:center;padding:20px;font-family:Segoe UI,Arial,sans-serif">Keine Daten &ndash; bitte Variablen konfigurieren und sicherstellen, dass deren Werte &gt; 0 sind.</p>';
+            var msg = document.createElement('p');
+            msg.textContent = o.noDataText;
+            msg.style.cssText = 'text-align:center;padding:1.5em;opacity:0.7';
+            container.innerHTML = '';
+            container.appendChild(msg);
             return;
         }
 
@@ -163,14 +233,14 @@
 
         /* ── Node-Tooltip helper ────────────────────────────────────── */
         function nodeTooltip(n, unit) {
-            var u = unit ? '&nbsp;' + unit : '';
-            var html = '<b>' + n.id + '</b>';
+            var u = unit ? '&nbsp;' + esc(unit) : '';
+            var html = '<b>' + esc(n.id) + '</b>';
             if (o.staticMode) {
                 var val = Math.max(n.inV, n.outV);
                 html += '<br>' + fmt(val) + u;
             } else {
-                if (n.inV  > 0) html += '<br>Eingang:&nbsp;'  + fmt(n.inV)  + u;
-                if (n.outV > 0) html += '<br>Ausgang:&nbsp;' + fmt(n.outV) + u;
+                if (n.inV  > 0) html += '<br>' + esc(o.incomingText) + ':&nbsp;'  + fmt(n.inV)  + u;
+                if (n.outV > 0) html += '<br>' + esc(o.outgoingText) + ':&nbsp;' + fmt(n.outV) + u;
             }
             return html;
         }
@@ -194,6 +264,11 @@
             container.__sankeyMouseX = mouseX;
             container.__sankeyMouseY = mouseY;
         });
+
+        function linkTooltip(l) {
+            return '<b>' + esc(l.s) + '</b> &rarr; <b>' + esc(l.t) + '</b><br>' + fmt(l.v) +
+                (l.u ? '&nbsp;' + esc(l.u) : '') + (l.info ? ' (' + esc(l.info) + ')' : '');
+        }
 
         /* ── Links ───────────────────────────────────────────────────── */
         links.forEach(function (l, i) {
@@ -230,12 +305,12 @@
             path.addEventListener('mouseenter', function () {
                 path.setAttribute('fill-opacity', Math.min(1, o.linkOpacity * 2));
                 showTip(tip, svg,
-                    '<b>' + l.s + '</b> &rarr; <b>' + l.t + '</b><br>' + fmt(l.v) + (l.u ? '&nbsp;' + l.u : '') + (l.info ? ' (' + l.info + ')' : ''),
+                    linkTooltip(l),
                     mouseX, mouseY);
             });
             path.addEventListener('mousemove', function () {
                 showTip(tip, svg,
-                    '<b>' + l.s + '</b> &rarr; <b>' + l.t + '</b><br>' + fmt(l.v) + (l.u ? '&nbsp;' + l.u : '') + (l.info ? ' (' + l.info + ')' : ''),
+                    linkTooltip(l),
                     mouseX, mouseY);
             });
             path.addEventListener('mouseleave', function () {
@@ -280,12 +355,11 @@
                 x: tx, y: n.y + n.h / 2,
                 dy: '0.35em',
                 'text-anchor':  onLeft ? 'start' : 'end',
-                'font-family':  'Segoe UI,Arial,sans-serif',
                 'font-size':    o.fontSize,
-                'font-weight':  '500',
-                fill:           o.labelColor,
                 'pointer-events': 'none'
             });
+            t.style.fontFamily = 'inherit';
+            t.style.fill = o.labelColor || 'var(--content-color, currentColor)';
             t.textContent = n.id.endsWith('-')
                 ? n.id.slice(0, -1)
                 : n.id;
@@ -342,3 +416,145 @@
     global.drawSankey = drawSankey;
 
 }(window));
+</script>
+<script>
+    var rows = [];
+    var nodeColors = {};
+    var staticMode = false;
+    var startTs = null;
+    var endTs = null;
+    var labelColor = '';
+    var showValues = false;
+    var texts = {};
+    var resizeTimer;
+
+    function tsToInputVal(ts) {
+        if (!ts) {
+            return '';
+        }
+
+        var d = new Date(ts * 1000);
+
+        return d.getFullYear() + '-' +
+            String(d.getMonth() + 1).padStart(2, '0') + '-' +
+            String(d.getDate()).padStart(2, '0') + 'T' +
+            String(d.getHours()).padStart(2, '0') + ':' +
+            String(d.getMinutes()).padStart(2, '0');
+    }
+
+    function dateToTs(val) {
+        if (!val) {
+            return 0;
+        }
+
+        return Math.floor(new Date(val).getTime() / 1000);
+    }
+
+    function fitTile() {
+        var cs = window.getComputedStyle(document.body);
+        var margins = (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+
+        document.getElementById('tile').style.height = Math.max(0, window.innerHeight - margins) + 'px';
+    }
+
+    function updateDateRange() {
+        var el = document.getElementById('date_range');
+        var btn = document.getElementById('btn_mode');
+        var inpStart = document.getElementById('inp_start');
+        var inpEnd = document.getElementById('inp_end');
+        var display = staticMode ? 'inline-block' : 'none';
+
+        btn.textContent = staticMode ? (texts.archive || 'Archive') : (texts.live || 'Live');
+        el.style.display = 'flex';
+        inpStart.style.display = display;
+        inpEnd.style.display = display;
+        document.querySelector('.dp-sep').style.display = display;
+
+        if (staticMode) {
+            if (document.activeElement !== inpStart) {
+                inpStart.value = tsToInputVal(startTs);
+            }
+
+            if (document.activeElement !== inpEnd) {
+                inpEnd.value = tsToInputVal(endTs);
+            }
+        }
+    }
+
+    function render() {
+        var chart = document.getElementById('chart_div');
+
+        fitTile();
+        chart.innerHTML = '';
+
+        drawSankey('chart_div', rows, {
+            nodeColors: nodeColors,
+            linkOpacity: 0.45,
+            labelColor: labelColor,
+            showValues: showValues,
+            staticMode: staticMode,
+            noDataText: texts.noData,
+            incomingText: texts.incoming,
+            outgoingText: texts.outgoing
+        });
+
+        updateDateRange();
+    }
+
+    function handleMessage(message) {
+        var data = typeof message === 'string' ? JSON.parse(message) : message;
+
+        rows = data.rows || [];
+        nodeColors = data.nodeColors || {};
+        texts = data.texts || texts;
+
+        if (data.staticMode !== undefined) {
+            staticMode = data.staticMode;
+        }
+
+        if (data.startTs !== undefined) {
+            startTs = data.startTs;
+        }
+
+        if (data.endTs !== undefined) {
+            endTs = data.endTs;
+        }
+
+        if (data.labelColor !== undefined) {
+            labelColor = data.labelColor;
+        }
+
+        if (data.showValues !== undefined) {
+            showValues = data.showValues;
+        }
+
+        render();
+    }
+
+    document.getElementById('inp_start').addEventListener('change', function () {
+        startTs = dateToTs(this.value);
+        requestAction('StartDate', startTs);
+    });
+
+    document.getElementById('inp_end').addEventListener('change', function () {
+        endTs = dateToTs(this.value);
+        requestAction('EndDate', endTs);
+    });
+
+    document.getElementById('btn_mode').addEventListener('click', function () {
+        requestAction('ToggleMode', staticMode ? 0 : 1);
+    });
+
+    function scheduleRender() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(render, 150);
+    }
+
+    window.addEventListener('resize', scheduleRender);
+
+    if (window.ResizeObserver) {
+        new ResizeObserver(scheduleRender).observe(document.getElementById('chart_div'));
+    }
+
+    fitTile();
+</script>
