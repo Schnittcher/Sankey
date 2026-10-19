@@ -51,8 +51,8 @@ Der Eintrag wechselt die Seite, sobald sich das Vorzeichen ändert. Liefert eine
 
 Variable | Ident | Typ | Beschreibung
 ------------ | ------------ | ------------ | ----------------
-Startdatum | `StartDate` | Ganzzahl (Unix-Zeitstempel) | Beginn des Zeitraums im statischen Modus. Nur im statischen Modus sichtbar und bedienbar.
-Enddatum | `EndDate` | Ganzzahl (Unix-Zeitstempel) | Ende des Zeitraums im statischen Modus. Nur im statischen Modus sichtbar und bedienbar.
+Startdatum | `StartDate` | Ganzzahl (Datum/Uhrzeit, Unix-Zeitstempel) | Beginn des Zeitraums im statischen Modus. Nur im statischen Modus sichtbar und bedienbar.
+Enddatum | `EndDate` | Ganzzahl (Datum/Uhrzeit, Unix-Zeitstempel) | Ende des Zeitraums im statischen Modus. Nur im statischen Modus sichtbar und bedienbar.
 
 Die Variablen werden automatisch angelegt. Das Löschen kann zu Fehlfunktionen führen. Das Startdatum darf nicht nach dem Enddatum liegen.
 

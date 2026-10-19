@@ -7,3 +7,4 @@ vendor/
 docs/FORUM_POST.md
 docs/FORUM_CHANGELOG.md
 docs/adr/
+.phpunit.result.cache

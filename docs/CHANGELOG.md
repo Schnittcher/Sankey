@@ -1,8 +1,9 @@
 # Changelog
 
-## 19.10.2026 - Version 1.3
+## 19.10.2026 - Version 2.0
 
 ### Neu
+- Start- und Enddatum nutzen die neue Darstellung Datum/Uhrzeit statt des alten Profils.
 - Die Kachel übernimmt Schrift, Farben und Ränder der Visualisierung und passt sich dem hellen und dunklen Design an.
 - Beschriftungen und Texte sind jetzt übersetzbar (Englisch mit deutscher Übersetzung).
 - Voraussetzung ist jetzt IP-Symcon 8.1.

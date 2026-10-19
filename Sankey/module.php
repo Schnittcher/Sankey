@@ -5,6 +5,7 @@ declare(strict_types=1);
 class Sankey extends IPSModuleStrict
 {
     private const ARCHIVE_CONTROL_GUID = '{43192F0B-135B-4CE7-A0A7-1475603F3060}';
+    private const PRESENTATION_DATE_TIME = '{497C4845-27FA-6E4F-AE37-5D951D3BDBF9}';
     private const JSON_FLAGS = JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
 
     public function Create(): void
@@ -17,11 +18,6 @@ class Sankey extends IPSModuleStrict
         $this->RegisterPropertyBoolean('StaticMode', false);
         $this->RegisterPropertyString('Links', '[]');
 
-        $this->RegisterVariableInteger('StartDate', $this->Translate('Start date'), '~UnixTimestamp', 10);
-        $this->RegisterVariableInteger('EndDate', $this->Translate('End date'), '~UnixTimestamp', 11);
-        $this->EnableAction('StartDate');
-        $this->EnableAction('EndDate');
-
         $this->SetVisualizationType(defined('INSTANCE_VISUALIZATION_TYPE_HTML_FULLSCREEN') ? INSTANCE_VISUALIZATION_TYPE_HTML_FULLSCREEN : 1);
     }
 
@@ -30,6 +26,19 @@ class Sankey extends IPSModuleStrict
         parent::ApplyChanges();
 
         $staticMode = $this->ReadPropertyBoolean('StaticMode');
+
+        // Native Darstellung Datum/Uhrzeit (ersetzt das Legacy-Profil ~UnixTimestamp, Werte und Idents bleiben erhalten)
+        $presentation = [
+            'PRESENTATION'    => self::PRESENTATION_DATE_TIME,
+            'DATE'            => 1,
+            'MONTH_TEXT'      => false,
+            'DAY_OF_THE_WEEK' => false,
+            'TIME'            => 1
+        ];
+        $this->MaintainVariable('StartDate', $this->Translate('Start date'), VARIABLETYPE_INTEGER, $presentation, 10, true);
+        $this->MaintainVariable('EndDate', $this->Translate('End date'), VARIABLETYPE_INTEGER, $presentation, 11, true);
+        $this->EnableAction('StartDate');
+        $this->EnableAction('EndDate');
 
         // Datumsvariablen nur im statischen Modus sichtbar und bedienbar
         foreach (['StartDate', 'EndDate'] as $ident) {
