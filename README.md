@@ -10,6 +10,7 @@ Dieses Modul stellt Energie- oder andere Flüsse als Sankey-Diagramm in der Kach
 ## Inhaltsverzeichnis
 - [Sankey](#sankey)
   - [Inhaltsverzeichnis](#inhaltsverzeichnis)
+  - [Screenshots](#screenshots)
   - [1. Voraussetzungen](#1-voraussetzungen)
   - [2. Funktionsumfang](#2-funktionsumfang)
   - [3. Enthaltene Module](#3-enthaltene-module)
@@ -17,6 +18,10 @@ Dieses Modul stellt Energie- oder andere Flüsse als Sankey-Diagramm in der Kach
   - [5. Konfiguration in IP-Symcon](#5-konfiguration-in-ip-symcon)
   - [6. Spenden](#6-spenden)
   - [7. Lizenz](#7-lizenz)
+
+## Screenshots
+
+![Sankey-Kachel im Live-Modus](docs/screenshots/sankey.png)
 
 ## 1. Voraussetzungen
 
