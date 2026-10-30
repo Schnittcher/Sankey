@@ -14,3 +14,33 @@
 - Das Startdatum kann nicht mehr nach dem Enddatum liegen.
 - Fehlende Archivdaten füllen das Log nicht mehr mit Warnungen.
 - Der Hinweistext zur Aggregation im Konfigurationsformular stimmt wieder mit dem Verhalten überein.
+
+## 11.06.2026 - Version 1.2.1 (Beta Version)
+
+### Neu
+- Archivansicht aktualisiert sich wenn Daten im aktuellen Zeitraum eintreffen
+- Profil Assoziationen werden berücksichtigt
+
+### Fixes
+- kein Minuszeichen mehr im Archivmodus
+
+## 17.05.2026 - Version 1.2 (Beta Version)
+
+### Neu
+- Invertieren von Werten
+- < 0 ignorieren
+- Statisches Diagramm (Werte aus dem Archiv)
+- Werte an den Nodes sind möglich
+
+### Fixes
+- Farbanpassungen
+
+## 16.05.2026 - Version 1.1 (Beta Version)
+
+### Neu
+- Google Charts entfernt, auf HTML SDK umgestellt
+
+## 15.05.2026 - Version 1.0 (Beta Version)
+
+### Neu
+- Erste Version.
